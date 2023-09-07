@@ -1,0 +1,13 @@
+_target_: src.models.collators.simple_text_collator.SimpleTextCollator
+
+defaults:
+  - tokenizer: simple_word_level_tokenizer
+
+max_length: 100
+padding_side: 'right'
+special_tokens: ${model.special_tokens}
+pad_token_id: 0
+
+max_X_length: ${model.collator.max_length}
+max_Z_length: ${model.collator.max_length}
+padding: True       

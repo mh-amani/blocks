@@ -1,0 +1,4 @@
+entmax:
+  _target_: src.models.modules.discrete_layers.entmax.EntmaxDiscreteLayer
+  alpha: 1.1
+

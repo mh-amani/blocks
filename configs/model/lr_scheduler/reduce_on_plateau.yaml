@@ -1,0 +1,89 @@
+_target_: torch.optim.lr_scheduler.ReduceLROnPlateau
+
+mode: "min"
+factor: 0.8
+patience: 1
+threshold: 0.01
+threshold_mode: "abs"
+cooldown: 1
+min_lr: 1e-6
+eps: 1e-8
+verbose: True
+
+#     scheduler:  # the schedule instance defined above – will be passed from the code (in configure_optimizer)
+interval: "epoch" # The unit of the scheduler's step size. 'step' or 'epoch
+frequency: 1 # corresponds to updating the learning rate after every `frequency` epoch/step
+monitor: train/loss # Used by a LearningRateMonitor callback when ReduceLROnPlateau is used 
+# (train/z_supervision_loss, train/total_loss, val/z_supervision_loss, val/total_loss)
+
+model_x_to_z_scheduler:
+  _target_: ${model.lr_scheduler._target_}
+  mode: ${model.lr_scheduler.mode}
+  factor: ${model.lr_scheduler.factor}
+  patience: ${model.lr_scheduler.patience}
+  threshold: ${model.lr_scheduler.threshold}
+  threshold_mode: ${model.lr_scheduler.threshold_mode}
+  cooldown: ${model.lr_scheduler.cooldown}
+  min_lr: ${model.lr_scheduler.min_lr}
+  eps: ${model.lr_scheduler.eps}
+  verbose: ${model.lr_scheduler.verbose}
+
+model_x_to_z_scheduler_dict:
+  interval: ${model.lr_scheduler.interval}
+  frequency: ${model.lr_scheduler.frequency}
+  monitor: ${model.lr_scheduler.monitor}
+  name: LearningRateScheduler_${model.lr_scheduler.model_x_to_z_scheduler._target_}
+
+model_z_to_x_scheduler:
+  _target_: ${model.lr_scheduler._target_}
+  mode: ${model.lr_scheduler.mode}
+  factor: ${model.lr_scheduler.factor}
+  patience: ${model.lr_scheduler.patience}
+  threshold: ${model.lr_scheduler.threshold}
+  threshold_mode: ${model.lr_scheduler.threshold_mode}
+  cooldown: ${model.lr_scheduler.cooldown}
+  min_lr: ${model.lr_scheduler.min_lr}
+  eps: ${model.lr_scheduler.eps}
+  verbose: ${model.lr_scheduler.verbose}
+
+model_z_to_x_scheduler_dict:
+  interval: ${model.lr_scheduler.interval}
+  frequency: ${model.lr_scheduler.frequency}
+  monitor: ${model.lr_scheduler.monitor}
+  name: LearningRateScheduler_${model.lr_scheduler.model_z_to_x_scheduler._target_}
+
+disc_x_scheduler:
+  _target_: ${model.lr_scheduler._target_}
+  mode: ${model.lr_scheduler.mode}
+  factor: ${model.lr_scheduler.factor}
+  patience: ${model.lr_scheduler.patience}
+  threshold: ${model.lr_scheduler.threshold}
+  threshold_mode: ${model.lr_scheduler.threshold_mode}
+  cooldown: ${model.lr_scheduler.cooldown}
+  min_lr: ${model.lr_scheduler.min_lr}
+  eps: ${model.lr_scheduler.eps}
+  verbose: ${model.lr_scheduler.verbose}
+
+disc_x_scheduler_dict:
+  interval: ${model.lr_scheduler.interval}
+  frequency: ${model.lr_scheduler.frequency}
+  monitor: ${model.lr_scheduler.monitor}
+  name: LearningRateScheduler_${model.lr_scheduler.disc_x_scheduler._target_}
+
+disc_z_scheduler:
+  _target_: ${model.lr_scheduler._target_}
+  mode: ${model.lr_scheduler.mode}
+  factor: ${model.lr_scheduler.factor}
+  patience: ${model.lr_scheduler.patience}
+  threshold: ${model.lr_scheduler.threshold}
+  threshold_mode: ${model.lr_scheduler.threshold_mode}
+  cooldown: ${model.lr_scheduler.cooldown}
+  min_lr: ${model.lr_scheduler.min_lr}
+  eps: ${model.lr_scheduler.eps}
+  verbose: ${model.lr_scheduler.verbose}
+
+disc_z_scheduler_dict:
+  interval: ${model.lr_scheduler.interval}
+  frequency: ${model.lr_scheduler.frequency}
+  monitor: ${model.lr_scheduler.monitor}
+  name: LearningRateScheduler_${model.lr_scheduler.disc_z_scheduler._target_}

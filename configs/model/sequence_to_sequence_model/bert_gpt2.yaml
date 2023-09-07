@@ -1,0 +1,9 @@
+bert_gpt2:
+  _target_: to be filled in
+
+  params:
+
+      encoder_params: to be filled in
+      
+      decoder_params: to be filled in
+          

@@ -1,0 +1,41 @@
+# @package _global_
+
+# Activate the debug config through the CLI (e.g. `python ... +debug=fast`)
+
+defaults:
+  - callbacks: default
+  - datamodule: ???
+  - model: default
+  - trainer: default
+  - logger: wandb
+
+  # - optional local: default
+  - _self_
+
+# path to checkpoint to resume from
+resume_from_checkpoint: null
+
+pad_token_id: 0
+
+# path to work directory
+work_dir: ${hydra:runtime.cwd}
+
+# path to data directory
+data_dir: ${work_dir}/data
+#data_dir: /dlabdata1/josifosk/SynthIE_main/data
+
+# path to output directory, created dynamically by hydra
+output_dir: ${hydra:runtime.output_dir}
+
+ignore_warnings: False
+print_config: True
+
+# Seed used to seed everything in the beginning of the run script and to fix randomness in dataset
+# preferably, set it to 42, the answer to life, the universe and everything
+seed: 42
+
+# determines the log directory's parent folder
+logs_subfolder: train
+
+# determines the log directory's identifier
+run_name: ???

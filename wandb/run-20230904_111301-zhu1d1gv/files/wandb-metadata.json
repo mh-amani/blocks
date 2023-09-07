@@ -1,0 +1,36 @@
+{
+    "os": "macOS-13.0.1-arm64-arm-64bit",
+    "python": "3.11.4",
+    "heartbeatAt": "2023-09-04T09:13:01.982629",
+    "startedAt": "2023-09-04T09:13:01.081694",
+    "docker": null,
+    "cuda": null,
+    "args": [
+        "+experiment=scan_bert_supervised"
+    ],
+    "state": "running",
+    "program": "./run_train.py",
+    "codePath": "run_train.py",
+    "git": {
+        "remote": "https://github.com/mh-amani/blocks.git",
+        "commit": "4d884315624c5175c00abd7cc58a76d9f08cb2aa"
+    },
+    "email": "mh.amani1998@gmail.com",
+    "root": "/Users/mhamani/Documents/projects/blocks",
+    "host": "tsf-444-wpa-3-201.epfl.ch",
+    "username": "mhamani",
+    "executable": "/Users/mhamani/miniconda3/envs/blocks/bin/python",
+    "cpu_count": 8,
+    "cpu_count_logical": 8,
+    "disk": {
+        "total": 460.4317207336426,
+        "used": 8.21966552734375
+    },
+    "gpuapple": {
+        "type": "arm",
+        "vendor": "Apple"
+    },
+    "memory": {
+        "total": 16.0
+    }
+}
