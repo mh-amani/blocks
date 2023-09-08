@@ -42,7 +42,6 @@ class XZAutoencoder(LightningModule):
         self.reconstruction_loss_coeff_x = self.hparams.model_params.reconstruction_loss_coeff_x
         self.reconstruction_loss_coeff_z = self.hparams.model_params.reconstruction_loss_coeff_z
 
-        # self.model.pad_token_id = -100
 
         # Metrics
         self.homogeneity_z = src.metrics.SentenceHomogeneity()
@@ -171,7 +170,8 @@ class XZAutoencoder(LightningModule):
         z_ids = batch['z_ids']
 
         # logging the supervision type, 10 for only x, 01 for only z, 11 for both :/ 
-        self.log_dict({f"{stage}/supervision": data_type[0]*10 + data_type[1] ,'global_step': self.global_step})
+        self.log_dict({f"{stage}/x_supervision": data_type[0], 'z_supervision':data_type[1], 
+                       'global_step': self.global_step}, batch_size=self.datamodule.dataset_parameters.batch_size)
         
         outputs = {}
         outputs['supervised_seperated'] = None
@@ -253,7 +253,7 @@ class XZAutoencoder(LightningModule):
             self.log_dict({"reconstructor_LR":scheduler._last_lr[0],'global_step': self.global_step})
 
 
-    def compute_accuracy_measures(self, batch, batch_idx, stage):
+    def compute_accuracy_measures(self, batch, stage):
         assert np.all(batch['data_type']), "compute_accuracy_measures: data_type must be supervised"
         
         outputs, losses = self.forward(batch, stage='val')
@@ -282,33 +282,33 @@ class XZAutoencoder(LightningModule):
     def accuracy_measures(self, x_hat_ids, z_hat_ids, x_ids, z_ids, stage, type):
         #Completeness test
         value = self.completeness_x(x_ids, x_hat_ids)
-        self.log(f'{stage}_{type}_completeness_x', value)
+        self.log(f'{stage}/{type}_completeness_x', value)
         value = self.completeness_z(z_ids, z_hat_ids)
-        self.log(f'{stage}_{type}_completeness_z', value)
+        self.log(f'{stage}/{type}_completeness_z', value)
         
         #Homogeneity test
         value = self.homogeneity_x(x_ids, x_hat_ids)
-        self.log(f'{stage}_{type}_homogeneity_x', value)
+        self.log(f'{stage}/{type}_homogeneity_x', value)
         value = self.homogeneity_z(z_ids, z_hat_ids)
-        self.log(f'{stage}_{type}_homogeneity_z', value)
+        self.log(f'{stage}/{type}_homogeneity_z', value)
 
         #Accuracy test
         value = self.accuracy_x(x_ids, x_hat_ids)
-        self.log(f'{stage}_{type}_accuracy_x', value)
+        self.log(f'{stage}/{type}_accuracy_x', value)
         value = self.accuracy_z(z_ids, z_hat_ids)
-        self.log(f'{stage}_{type}_accuracy_z', value)
+        self.log(f'{stage}/{type}_accuracy_z', value)
 
         #Accuracy sentence test
         value = self.accuracy_x_sentence(x_ids, x_hat_ids)
-        self.log(f'{stage}_{type}_accuracy_x_sentence', value)
+        self.log(f'{stage}/{type}_accuracy_x_sentence', value)
         value = self.accuracy_z_sentence(z_ids, z_hat_ids)
-        self.log(f'{stage}_{type}_accuracy_z_sentence', value)
+        self.log(f'{stage}/{type}_accuracy_z_sentence', value)
 
         #Token homogeneity test
         value = self.token_homogeneity_x(x_ids, x_hat_ids)
-        self.log(f'{stage}_{type}_token_homogeneity_x', value)
+        self.log(f'{stage}/{type}_token_homogeneity_x', value)
         value = self.token_homogeneity_z(z_ids, z_hat_ids)
-        self.log(f'{stage}_{type}_token_homogeneity_z', value)
+        self.log(f'{stage}/{type}_token_homogeneity_z', value)
 
         # if self.hparams.get('write_testing_output', True):
         #     step_summary = {'stage': stage, 'type': type, 'x_ids': x_ids, 'x_hat_ids': x_hat_ids, 'z_ids': z_ids, 'z_hat_ids': z_hat_ids}
@@ -316,7 +316,7 @@ class XZAutoencoder(LightningModule):
 
         
     def validation_step(self, batch, batch_idx):
-        output = self.compute_accuracy_measures(batch, batch_idx, 'val')
+        output = self.compute_accuracy_measures(batch, stage='val')
         return output
     
 

@@ -21,10 +21,15 @@ class SimpleTextCollator:
         self.max_Z_length = max_Z_length
         self.padding = padding
         self.pad_token_id = pad_token_id
+        self.tokenize_prior_training = kwargs['tokenizer']['tokenize_prior_training']
         
         
         self.tokenizer_x = hydra.utils.instantiate(kwargs['tokenizer'], dataset=data_train, key='X', _recursive_=False)
         self.tokenizer_z = hydra.utils.instantiate(kwargs['tokenizer'], dataset=data_train, key='Z', _recursive_=False)
+
+        if self.tokenize_prior_training:
+            self.x_ids = [self.tokenizer_x.encode(sample['X']).ids for sample in data_train]
+            self.z_ids = [self.tokenizer_z.encode(sample['Z']).ids for sample in data_train]
 
     def collate_fn(self, batch: Iterable[dict]):
         """
@@ -46,11 +51,12 @@ class SimpleTextCollator:
         key = "id"
         collated_batch["id"] = np.array([sample[key] for sample in batch], dtype=np.int_)
 
-        key = "X"
-        x_ids = [self.tokenizer_x.encode(sample[key]).ids for sample in batch]
-
-        key = "Z"
-        z_ids = [self.tokenizer_z.encode(sample[key]).ids for sample in batch]
+        if self.tokenize_prior_training:
+            x_ids = [self.x_ids[i] for i in collated_batch["id"]]
+            z_ids = [self.z_ids[i] for i in collated_batch["id"]]
+        else:
+            x_ids = [self.tokenizer_x.encode(sample[key]).ids for sample in batch]
+            z_ids = [self.tokenizer_z.encode(sample[key]).ids for sample in batch]
         
         if self.max_X_length is not None:
             x_ids = [i[: self.max_X_length] for i in x_ids]
@@ -65,7 +71,7 @@ class SimpleTextCollator:
         collated_batch["x_ids"] = torch.tensor(x_ids, dtype=torch.long)
         collated_batch["z_ids"] = torch.tensor(z_ids, dtype=torch.long)
         # super slow:
-        collated_batch["data_type"] = np.prod([sample["data_type"] for sample in batch], dtype=np.bool_, axis=0)
+        collated_batch["data_type"] = np.prod([sample["data_type"] for sample in batch], dtype=np.int8, axis=0)
 
         return collated_batch
     

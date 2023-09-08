@@ -128,3 +128,6 @@ dmypy.json
 
 # experiment results
 outputs/
+
+# wandb
+wandb/

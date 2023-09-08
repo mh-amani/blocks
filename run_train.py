@@ -1,6 +1,7 @@
 from src.utils import hydra_custom_resolvers
 import hydra
 from omegaconf import DictConfig
+import os
 
 # python run_training.py training=<evaluation_config> run_name=<run_name>
 
@@ -9,6 +10,8 @@ def main(hydra_config: DictConfig):
    
     import src.utils.general as utils
     from src.training_pipeline import train
+
+    os.environ["TOKENIZERS_PARALLELISM"] = "True"
 
     utils.extras(hydra_config)
     print(f"Original working directory: {hydra_config.work_dir}")

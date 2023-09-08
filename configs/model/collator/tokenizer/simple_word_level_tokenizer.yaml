@@ -5,3 +5,4 @@ vocab_size: 30
 special_tokens: ${model.collator.special_tokens}
 pad_token_id: ${model.collator.pad_token_id}
 batch_size: ${datamodule.dataset_parameters.batch_size}
+tokenize_prior_training: True
