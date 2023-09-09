@@ -131,3 +131,13 @@ outputs/
 
 # wandb
 wandb/
+
+# outputs
+outputs/
+
+# check points
+checkpoints/
+
+config_tree.txt
+
+
