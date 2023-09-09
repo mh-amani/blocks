@@ -30,6 +30,7 @@ class XZAutoencoder(LightningModule):
         self.unk_token_id = self.special_tokens.index('[unk]')
         self.special_tokens_ids = {'pad_token_id': self.pad_token_id, 'eos_token_id': self.eos_token_id, 
                                    'bos_token_id': self.bos_token_id}
+        
         self.automatic_optimization = False
         self.tokenize_after_generation = self.hparams.model_params.tokenize_after_generation
         # the encoder and decoder
@@ -39,21 +40,19 @@ class XZAutoencoder(LightningModule):
                                                      special_tokens_ids=self.special_tokens_ids, _recursive_ = False)
         
         # loss function coefficients
-        self.reconstruction_loss_coeff_x = self.hparams.model_params.reconstruction_loss_coeff_x
-        self.reconstruction_loss_coeff_z = self.hparams.model_params.reconstruction_loss_coeff_z
+        self.loss_coeff = self.hparams.model_params.loss_coeff
+
+        self.batch_size = self.datamodule.dataset_parameters.batch_size
 
 
         # Metrics
-        self.homogeneity_z = src.metrics.SentenceHomogeneity()
-        self.token_homogeneity_z = src.metrics.TokenHomogeneity(self.eos_token_id)
-        self.completeness_z = src.metrics.Completeness()
-        self.accuracy_z = src.metrics.Accuracy(self.pad_token_id)
-        self.accuracy_z_sentence = src.metrics.Accuracy(self.pad_token_id)
-        self.homogeneity_x = src.metrics.SentenceHomogeneity()
-        self.token_homogeneity_x = src.metrics.TokenHomogeneity(self.eos_token_id)
-        self.completeness_x = src.metrics.Completeness()
-        self.accuracy_x = src.metrics.Accuracy(self.pad_token_id)
-        self.accuracy_x_sentence = src.metrics.Accuracy(self.pad_token_id)
+        self.completeness = {'X': src.metrics.Completeness(), 'Z': src.metrics.Completeness()}
+        self.homogeneity = {'X': src.metrics.SentenceHomogeneity(), 'Z': src.metrics.SentenceHomogeneity()}
+        self.accuracy = {'X': src.metrics.Accuracy(self.pad_token_id), 'Z': src.metrics.Accuracy(self.pad_token_id)}
+        self.accuracy_sentence = {'X': src.metrics.Accuracy(self.pad_token_id), 
+                                  'Z': src.metrics.Accuracy(self.pad_token_id)}
+        self.token_homogeneity = {'X': src.metrics.TokenHomogeneity(self.eos_token_id),
+                                   'Z': src.metrics.TokenHomogeneity(self.eos_token_id)}
 
         self.max_x_length = self.hparams.model_params.max_x_length
         self.max_z_length = self.hparams.model_params.max_z_length
@@ -62,16 +61,21 @@ class XZAutoencoder(LightningModule):
     def setup(self, stage: str) -> None:
         disc_conf_x, disc_conf_z = self.discretizer_dimensions()
         # discrete bottlenecks
-        self.disc_x = hydra.utils.instantiate(self.hparams.modules.disc_x, disc_conf_x, self.pad_token_id, _recursive_ = False)
-        self.disc_z = hydra.utils.instantiate(self.hparams.modules.disc_z, disc_conf_z, self.pad_token_id, _recursive_ = False)
+        self.disc_x = hydra.utils.instantiate(self.hparams.modules.disc_x, disc_conf_x, _recursive_ = False)
+        self.disc_z = hydra.utils.instantiate(self.hparams.modules.disc_z, disc_conf_z, _recursive_ = False)
 
 
-    def one_step_sequential_forward(self, model, discretizer, input_embeds, output_embeds, eos_flag, past_key_values=None):
+    def one_step_sequential_forward(self, model, discretizer, input_embeds, input_attention_mask, 
+                                    output_embeds, output_attention_mask, past_key_values=None, ):
+        
         if past_key_values is not None:
-            output = model(inputs_embeds=input_embeds, decoder_inputs_embeds=output_embeds[..., -1:, :], past_key_values=past_key_values,
-                                     output_hidden_states = True)
+            output = model(inputs_embeds=input_embeds, attention_mask=input_attention_mask,
+                           decoder_inputs_embeds=output_embeds[..., -1:, :], decoder_attention_mask=output_attention_mask,
+                           past_key_values=past_key_values, output_hidden_states = True)
         else:
-            output = model(inputs_embeds=input_embeds, decoder_inputs_embeds=output_embeds ,output_hidden_states = True)
+            output = model(inputs_embeds=input_embeds, attention_mask=input_attention_mask,
+                           decoder_inputs_embeds=output_embeds, decoder_attention_mask=output_attention_mask,
+                           output_hidden_states = True)
         
         output_embed = output['decoder_hidden_states'][-1]
         past_key_values = output['past_key_values']
@@ -81,33 +85,38 @@ class XZAutoencoder(LightningModule):
         return(output_embed, current_eos_flag, past_key_values)
 
 
-    def sequential_forward(self, model, discretizer, input_embeds, bos_embed):
+    def sequential_forward(self, model, discretizer, input_embeds, input_attention_mask, bos_embed):
         output_embeds = torch.zeros(input_embeds.shape[0], 1, input_embeds.shape[2], device=input_embeds.device)
         output_embeds[:, 0, :] = bos_embed
         eos_flag = torch.zeros(input_embeds.shape[0], 1, device=input_embeds.device)
         past_key_values = None
+        output_attention_mask = torch.ones(input_embeds.shape[0], 1, device=input_embeds.device)
+
         if self.tokenize_after_generation:
             while output_embeds.shape[1] < self.max_x_length and not torch.all(eos_flag):
                 output_embed, current_eos_flag, past_key_values = self.one_step_sequential_forward(model, discretizer, 
-                                                                                        input_embeds, output_embeds, 
-                                                                                        eos_flag, past_key_values)
+                                                                                        input_embeds, input_attention_mask,
+                                                                                        output_embeds, output_attention_mask,
+                                                                                        past_key_values)
                 
                 output_embeds = torch.cat((output_embeds, output_embed), dim=1)
                 eos_flag = torch.logical_or(eos_flag, current_eos_flag)
+                output_attention_mask = torch.cat((output_attention_mask, torch.logical_not(eos_flag)), dim=1)
 
             output_embeds = discretizer.discretize(output_embeds)
 
         else:
             while output_embeds.shape[1] < self.max_x_length and not torch.all(eos_flag):
                 output_embed, current_eos_flag, past_key_values = self.one_step_sequential_forward(model, discretizer,
-                                                                                        input_embeds, output_embeds,
-                                                                                        eos_flag)
+                                                                                        input_embeds, output_embeds)
                 output_embed = discretizer.discretize(output_embed)
                 output_embeds = torch.cat((output_embeds, output_embed), dim=1)
                 eos_flag = torch.logical_or(eos_flag, current_eos_flag)
+                output_attention_mask = torch.cat((output_attention_mask, torch.logical_not(eos_flag)), dim=1)
 
 
-        return {'decoder_hidden_states': output_embeds, 'eos_flag': eos_flag}
+        return {'decoder_hidden_states': output_embeds, 'eos_flag': eos_flag, 
+                'output_attention_mask': output_attention_mask}
 
     
 
@@ -117,16 +126,20 @@ class XZAutoencoder(LightningModule):
         # xz_out = self.model_x_to_z.generate(inputs_embeds=x_embeds, max_length=x_embeds.shape[1], do_sample=False, output_hidden_states=True)
 
         x_embeds = self.disc_x.embed_from_id(x_ids)
-        xz_out= self.sequential_forward(self.model_x_to_z, self.disc_z, x_embeds, 
-                                                      self.disc_x.embed_from_id(torch.tensor([self.bos_token_id], 
-                                                                                             device=x_embeds.device)))['decoder_hidden_states']
+        x_attention_mask = torch.logical_not(torch.eq(x_ids, self.pad_token_id))
+        x_embeds = x_embeds * x_attention_mask.unsqueeze(-1)
+        xz_out= self.sequential_forward(self.model_x_to_z, self.disc_z, x_embeds, x_attention_mask,
+                                        self.disc_x.embed_from_id(torch.tensor([self.bos_token_id], 
+                                                                               device=x_embeds.device)))
         
-        z_hat = self.disc_z.decode(xz_out)
-        
-        zx_in = self.disc_z.embed_from_discrete_representation(xz_out)
+        z_hat = self.disc_z.decode(xz_out['decoder_hidden_states'])
+        z_attention_mask = xz_out['output_attention_mask']
+        # z_hat = z_hat * z_attention_mask.unsqueeze(-1)
 
-        x_hat = self.disc_x.discretize(self.model_z_to_x(inputs_embeds=zx_in, 
-                                                         decoder_inputs_embeds=x_embeds,
+        zx_in = self.disc_z.embed_from_discrete_representation(xz_out['decoder_hidden_states'])
+
+        x_hat = self.disc_x.discretize(self.model_z_to_x(inputs_embeds=zx_in, attention_mask=z_attention_mask,
+                                                         decoder_inputs_embeds=x_embeds, decoder_attention_mask=x_attention_mask,
                                                          output_hidden_states = True)['decoder_hidden_states'][-1])
 
         return {'x_embeds': x_embeds, 'xz_out': xz_out, 'z_hat': z_hat, 'x_hat': x_hat}
@@ -134,30 +147,38 @@ class XZAutoencoder(LightningModule):
 
     def forward_zxz(self, z_ids):
         z_embeds = self.disc_z.embed_from_id(z_ids)
-        zx_out= self.sequential_forward(self.model_z_to_x, self.disc_x, z_embeds, 
-                                                      self.disc_z.embed_from_id(torch.tensor([self.bos_token_id], 
-                                                                                             device=z_embeds.device)))['decoder_hidden_states']
+        z_attention_mask = torch.logical_not(torch.eq(z_ids, self.pad_token_id))
+        z_embeds = z_embeds * z_attention_mask.unsqueeze(-1)
+        zx_out = self.sequential_forward(self.model_z_to_x, self.disc_x, z_embeds, z_attention_mask,
+                                            self.disc_z.embed_from_id(torch.tensor([self.bos_token_id],
+                                                                                      device=z_embeds.device)))
         
-        x_hat = self.disc_x.decode(zx_out)
+        x_hat = self.disc_x.decode(zx_out['decoder_hidden_states'])
+        x_attention_mask = zx_out['output_attention_mask']
+        # x_hat = x_hat * x_attention_mask.unsqueeze(-1)
+
+        xz_in = self.disc_x.embed_from_discrete_representation(zx_out['decoder_hidden_states'])
+
+        z_hat = self.disc_z.discretize(self.model_x_to_z(inputs_embeds=xz_in, attention_mask=x_attention_mask,
+                                                            decoder_inputs_embeds=z_embeds, decoder_attention_mask=z_attention_mask,
+                                                            output_hidden_states = True)['decoder_hidden_states'][-1])
         
-        xz_in = self.disc_x.embed_from_discrete_representation(zx_out)
-
-        z_hat = self.disc_z.discretize(self.model_x_to_z(inputs_embeds=xz_in, 
-                                                         decoder_inputs_embeds=z_embeds,
-                                                         output_hidden_states = True)['decoder_hidden_states'][-1])
-
-        return {'x_embeds': z_embeds, 'zx_out': zx_out, 'x_hat': x_hat, 'z_hat': z_hat}
-    
+        return {'z_embeds': z_embeds, 'zx_out': zx_out, 'x_hat': x_hat, 'z_hat': z_hat}
+        
 
     def forward_supervised_seperated(self, x_ids, z_ids):
         x_embeds = self.disc_x.embed_from_id(x_ids)        
         z_embeds = self.disc_z.embed_from_id(z_ids)
+        x_attention_mask = torch.logical_not(torch.eq(x_ids, self.pad_token_id))
+        z_attention_mask = torch.logical_not(torch.eq(z_ids, self.pad_token_id))
+        x_embeds = x_embeds * x_attention_mask.unsqueeze(-1)
+        z_embeds = z_embeds * z_attention_mask.unsqueeze(-1)
 
-        z_hat = self.disc_z.discretize(self.model_x_to_z(inputs_embeds=x_embeds, 
-                                                         decoder_inputs_embeds=z_embeds,
+        z_hat = self.disc_z.discretize(self.model_x_to_z(inputs_embeds=x_embeds, attention_mask=x_attention_mask,
+                                                         decoder_inputs_embeds=z_embeds, decoder_attention_mask=z_attention_mask,
                                                          output_hidden_states = True)['decoder_hidden_states'][-1])
-        x_hat = self.disc_x.discretize(self.model_z_to_x(inputs_embeds=z_embeds,
-                                                            decoder_inputs_embeds=x_embeds,
+        x_hat = self.disc_x.discretize(self.model_z_to_x(inputs_embeds=z_embeds, attention_mask=z_attention_mask,
+                                                            decoder_inputs_embeds=x_embeds, decoder_attention_mask=x_attention_mask,
                                                             output_hidden_states = True)['decoder_hidden_states'][-1])
 
         return {'x_embeds': x_embeds, 'x_hat': x_hat, 'z_embeds': z_embeds, 'z_hat': z_hat}
@@ -185,53 +206,46 @@ class XZAutoencoder(LightningModule):
         losses['supervised_seperated_x'] = None
         losses['supervised_seperated_z'] = None
 
-        if data_type[0]:
+        if data_type[0] and self.loss_coeff['xzx'] > 0:
             output_xzx = self.forward_xzx(x_ids)
-            loss_xzx = self.disc_x.loss(output_xzx['x_hat'], x_ids)
+            loss_xzx = self.disc_x.loss(output_xzx['x_hat'], x_ids, ignore_index=self.pad_token_id)
             outputs['xzx'] = output_xzx
             losses['xzx'] = loss_xzx   
-        if data_type[1]:
+        if data_type[1] and self.loss_coeff['zxz'] > 0:
             output_zxz = self.forward_zxz(z_ids)
-            loss_zxz = self.disc_z.loss(output_zxz['z_hat'], z_ids)
+            loss_zxz = self.disc_z.loss(output_zxz['z_hat'], z_ids, ignore_index=self.pad_token_id)
             outputs['zxz'] = output_zxz
             losses['zxz'] = loss_zxz 
         if data_type[0] and data_type[1]:
             output_supervised_seperated = self.forward_supervised_seperated(x_ids, z_ids)
-            loss_x = self.disc_x.loss(output_supervised_seperated['x_hat'], x_ids)
-            loss_z = self.disc_z.loss(output_supervised_seperated['z_hat'], z_ids)
-            loss_supervised_seperated = self.reconstruction_loss_coeff_x * loss_x + self.reconstruction_loss_coeff_z * loss_z
+            loss_x = self.disc_x.loss(output_supervised_seperated['x_hat'], x_ids, ignore_index=self.pad_token_id)
+            loss_z = self.disc_z.loss(output_supervised_seperated['z_hat'], z_ids, ignore_index=self.pad_token_id)
+            loss_supervised_seperated = self.loss_coeff['supervised_seperated_x'] * loss_x + self.loss_coeff['supervised_seperated_z'] * loss_z
             outputs['supervised_seperated'] = output_supervised_seperated
             losses['supervised_seperated'] = loss_supervised_seperated
-            losses['supervised_seperated_x'] = loss_x
+            losses['supervised_seperated_x'] =  loss_x
             losses['supervised_seperated_z'] = loss_z
-            
+        
+        loss = 0 
         for key in losses:
-            self.log(f'{stage}/{key}', losses[key])
+            if losses[key] is not None and self.loss_coeff.get(key) is not None:
+                self.log(f'{stage}/{key}', losses[key])
+                loss += self.loss_coeff[key] * losses[key]  
+
+        self.log(f'{stage}/loss', loss, batch_size=self.batch_size)  
         
         # for key in outputs:
         #     if outputs[key] is not None:
         #         for subkey in outputs[key]:
         #             self.log(f'{stage}/{key}/{subkey}', outputs[key][subkey])
 
-            
 
-        # self.log(f'{stage}/loss_xzx', loss_xzx)
-        # self.log(f'{stage}/loss_zxz', loss_zxz)
-        # self.log(f'{stage}/loss_supervised_seperated_x', loss_x)
-        # self.log(f'{stage}/loss_supervised_seperated_z', loss_z)
-        # self.log(f'{stage}/loss_supervised_seperated', loss_supervised_seperated)
-
-        return outputs, losses       
+        return loss, losses, outputs       
     
             
     def training_step(self, batch, batch_idx):
-        outputs, losses = self.forward(batch)
+        loss, _, _ = self.forward(batch)
         
-        loss = 0
-        for key in losses:
-            if losses[key] is not None:
-                loss += losses[key]
-
         optimizers = self.optimizers()
         for optimizer in optimizers:
             optimizer.zero_grad()
@@ -256,59 +270,60 @@ class XZAutoencoder(LightningModule):
     def compute_accuracy_measures(self, batch, stage):
         assert np.all(batch['data_type']), "compute_accuracy_measures: data_type must be supervised"
         
-        outputs, losses = self.forward(batch, stage='val')
+        _, _, outputs = self.forward(batch, stage='val')
 
         x_ids = batch['x_ids'].detach()
         z_ids = batch['z_ids'].detach()
         
-        x_hat_ids_teacherforced = self.disc_x.decode(outputs['supervised_seperated']['x_hat'].detach())
-        z_hat_ids_teacherforced = self.disc_z.decode(outputs['supervised_seperated']['z_hat'].detach())
-        x_hat_ids_autoreg = outputs['zxz']['x_hat'].detach()
-        z_hat_ids_autoreg = outputs['xzx']['z_hat'].detach()
+        teacher_forced_available = outputs['supervised_seperated'] is not None
+        autoreg_z_available = outputs['zxz'] is not None
+        autoreg_x_available = outputs['xzx'] is not None
 
-        #Pad labels to similar length
-        x_ids_autoreg, x_hat_ids_autoreg = pad_label_label(x_ids, x_hat_ids_autoreg, self.pad_token_id)
-        z_ids_autoreg, z_hat_ids_autoreg = pad_label_label(z_ids, z_hat_ids_autoreg, self.pad_token_id)
-        x_ids_teacherforced, x_hat_ids_teacherforced = pad_label_label(x_ids, x_hat_ids_teacherforced, self.pad_token_id)
-        z_ids_teacherforced, z_hat_ids_teacherforced = pad_label_label(z_ids, z_hat_ids_teacherforced, self.pad_token_id)
+        if teacher_forced_available:
+            x_hat_ids_teacherforced = self.disc_x.decode(outputs['supervised_seperated']['x_hat'].detach())
+            z_hat_ids_teacherforced = self.disc_z.decode(outputs['supervised_seperated']['z_hat'].detach())
+            x_ids_teacherforced, x_hat_ids_teacherforced = pad_label_label(x_ids, x_hat_ids_teacherforced, self.pad_token_id)
+            z_ids_teacherforced, z_hat_ids_teacherforced = pad_label_label(z_ids, z_hat_ids_teacherforced, self.pad_token_id)
+
+            self.accuracy_measures(x_hat_ids_teacherforced, x_ids_teacherforced, stage, 'X', 'teacherforced')
+            self.accuracy_measures(z_hat_ids_teacherforced, z_ids_teacherforced, stage, 'Z', 'teacherforced')
         
-        self.accuracy_measures(x_hat_ids_teacherforced, z_hat_ids_teacherforced, 
-                               x_ids_teacherforced, z_ids_teacherforced, stage, 'teacherforced')
-        self.accuracy_measures(x_hat_ids_autoreg, z_hat_ids_autoreg, x_ids_autoreg, z_ids_autoreg, stage, 'autoreg')
-        
+        if autoreg_z_available:
+            z_hat_ids_autoreg = outputs['xzx']['z_hat'].detach()
+            z_ids_autoreg, z_hat_ids_autoreg = pad_label_label(z_ids, z_hat_ids_autoreg, self.pad_token_id)
+
+            self.accuracy_measures(z_hat_ids_autoreg, z_ids_autoreg, stage, 'Z', 'autoreg') 
+         
+        if autoreg_x_available:
+            x_hat_ids_autoreg = outputs['zxz']['x_hat'].detach() 
+            x_ids_autoreg, x_hat_ids_autoreg = pad_label_label(x_ids, x_hat_ids_autoreg, self.pad_token_id)
+
+            self.accuracy_measures(x_hat_ids_autoreg, x_ids_autoreg, stage, 'X', 'autoreg')
+
         return outputs
 
 
-    def accuracy_measures(self, x_hat_ids, z_hat_ids, x_ids, z_ids, stage, type):
+    def accuracy_measures(self, ids, hat_ids, stage, variable, type):
         #Completeness test
-        value = self.completeness_x(x_ids, x_hat_ids)
-        self.log(f'{stage}/{type}_completeness_x', value)
-        value = self.completeness_z(z_ids, z_hat_ids)
-        self.log(f'{stage}/{type}_completeness_z', value)
+        value = self.completeness[variable](ids, hat_ids)
+        self.log(f'{stage}/{type}/completeness/{variable}', value)
+        
         
         #Homogeneity test
-        value = self.homogeneity_x(x_ids, x_hat_ids)
-        self.log(f'{stage}/{type}_homogeneity_x', value)
-        value = self.homogeneity_z(z_ids, z_hat_ids)
-        self.log(f'{stage}/{type}_homogeneity_z', value)
+        value = self.homogeneity[variable](ids, hat_ids)
+        self.log(f'{stage}/{type}/homogeneity/{variable}', value)
 
         #Accuracy test
-        value = self.accuracy_x(x_ids, x_hat_ids)
-        self.log(f'{stage}/{type}_accuracy_x', value)
-        value = self.accuracy_z(z_ids, z_hat_ids)
-        self.log(f'{stage}/{type}_accuracy_z', value)
+        value = self.accuracy[variable](ids, hat_ids)
+        self.log(f'{stage}/{type}/accuracy/{variable}', value)
 
         #Accuracy sentence test
-        value = self.accuracy_x_sentence(x_ids, x_hat_ids)
-        self.log(f'{stage}/{type}_accuracy_x_sentence', value)
-        value = self.accuracy_z_sentence(z_ids, z_hat_ids)
-        self.log(f'{stage}/{type}_accuracy_z_sentence', value)
+        value = self.accuracy_sentence[variable](ids, hat_ids)
+        self.log(f'{stage}/{type}/accuracy_sentence/{variable}', value)
 
         #Token homogeneity test
-        value = self.token_homogeneity_x(x_ids, x_hat_ids)
-        self.log(f'{stage}/{type}_token_homogeneity_x', value)
-        value = self.token_homogeneity_z(z_ids, z_hat_ids)
-        self.log(f'{stage}/{type}_token_homogeneity_z', value)
+        value = self.token_homogeneity[variable](ids, hat_ids)
+        self.log(f'{stage}/{type}/token_homogeneity/{variable}', value)
 
         # if self.hparams.get('write_testing_output', True):
         #     step_summary = {'stage': stage, 'type': type, 'x_ids': x_ids, 'x_hat_ids': x_hat_ids, 'z_ids': z_ids, 'z_hat_ids': z_hat_ids}
@@ -426,4 +441,5 @@ class XZAutoencoder(LightningModule):
 
     def setup_collate_fn(self, datamodule):
         train_dataset = datamodule.data_train
-        self.collator = hydra.utils.instantiate(self.hparams.collator, train_dataset, _recursive_ = False)
+        self.collator = hydra.utils.instantiate(self.hparams.collator, train_dataset, 
+                                                special_tokens=self.special_tokens, _recursive_ = False)

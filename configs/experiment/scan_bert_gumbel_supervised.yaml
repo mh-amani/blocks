@@ -1,0 +1,51 @@
+# @package _global_
+
+# to execute this experiment run:
+# python run_train.py training=scan_gpt2_stacked  
+
+defaults:
+  - override /datamodule: scan
+  - override /model: xz_autoencoder
+  - override /logger: wandb
+  - override /trainer: default
+# all parameters below will be merged with parameters from default configurations set above
+# this allows you to overwrite only specified parameters
+
+# name of the run determines folder name in logs
+name: "scan_symae"
+run_name: "supervised" 
+
+track_gradients: Yes
+overfit_batch: 0
+
+trainer:
+  devices: 'auto' # also numbers
+  accelerator: 'cpu' #cpu, tpu, (devices=4, accelerator="gpu", strategy="ddp"), (devices="auto", accelerator="auto")
+
+model:
+  model_params:
+    loss_coeff:
+      xzx: -1
+      zxz: -1
+      supervised_seperated_x: 1.0
+      supervised_seperated_z: 1.0
+  
+  modules:
+    model_x_to_z: ${model.sequence_to_sequence_model.bert_gpt2}
+    model_z_to_x: ${model.sequence_to_sequence_model.bert_gpt2}
+    disc_x: ${model.discretizer.gumbel}
+    disc_z: ${model.discretizer.gumbel}
+  
+  optimizer:
+    lr: 0.1
+
+
+datamodule:
+  dataset_parameters:
+    sup_ratio: 0.02
+    batch_size: 128
+    num_workers: 1
+
+
+
+
