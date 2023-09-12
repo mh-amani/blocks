@@ -30,7 +30,7 @@ model_x_to_z_scheduler:
 
 model_x_to_z_scheduler_dict:
   interval: ${model.lr_scheduler.interval}
-  frequency: ${model.lr_scheduler.frequency}
+  # frequency: ${model.lr_scheduler.frequency}
   # monitor: ${model.lr_scheduler.monitor}
   name: LearningRateScheduler_${model.lr_scheduler.model_x_to_z_scheduler._target_}
 
@@ -48,7 +48,7 @@ model_z_to_x_scheduler:
 
 model_z_to_x_scheduler_dict:
   interval: ${model.lr_scheduler.interval}
-  frequency: ${model.lr_scheduler.frequency}
+  # frequency: ${model.lr_scheduler.frequency}
   # monitor: ${model.lr_scheduler.monitor}
   name: LearningRateScheduler_${model.lr_scheduler.model_z_to_x_scheduler._target_}
 
@@ -66,7 +66,7 @@ disc_x_scheduler:
 
 disc_x_scheduler_dict:
   interval: ${model.lr_scheduler.interval}
-  frequency: ${model.lr_scheduler.frequency}
+  # frequency: ${model.lr_scheduler.frequency}
   # monitor: ${model.lr_scheduler.monitor}
   name: LearningRateScheduler_${model.lr_scheduler.disc_x_scheduler._target_}
 
@@ -84,6 +84,6 @@ disc_z_scheduler:
 
 disc_z_scheduler_dict:
   interval: ${model.lr_scheduler.interval}
-  frequency: ${model.lr_scheduler.frequency}
+  # frequency: ${model.lr_scheduler.frequency}
   # monitor: ${model.lr_scheduler.monitor}
   name: LearningRateScheduler_${model.lr_scheduler.disc_z_scheduler._target_}

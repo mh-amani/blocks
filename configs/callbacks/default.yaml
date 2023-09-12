@@ -45,5 +45,5 @@ z_supervised_scheduler:
     num_warmup_steps: 25
     num_training_steps: 80
     hp_init: 1.0
-    hp_end: 0.0
+    hp_end: 1.0
     power: 1.0
