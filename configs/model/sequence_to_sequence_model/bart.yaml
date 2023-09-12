@@ -5,9 +5,9 @@ bart:
     _target_: transformers.BartConfig
     # Maximum sequence length that this model might ever be used with
     vocab_size: 20
-    d_model: 128
-    encoder_layers: 2
-    decoder_layers: 2
+    d_model: 256
+    encoder_layers: 4
+    decoder_layers: 4
     encoder_attention_heads: 4
     decoder_attention_heads: 4
     decoder_ffn_dim: 512

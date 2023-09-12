@@ -221,8 +221,8 @@ class XZAutoencoder(LightningModule):
             losses['zxz'] = loss_zxz 
         if data_type[0] and data_type[1]:
             output_supervised_seperated = self.forward_supervised_seperated(x_ids, z_ids)
-            loss_x = self.disc_x.loss(output_supervised_seperated['x_hat'], x_ids, ignore_index=self.pad_token_id)
-            loss_z = self.disc_z.loss(output_supervised_seperated['z_hat'], z_ids, ignore_index=self.pad_token_id)
+            loss_x = self.disc_x.loss(output_supervised_seperated['x_hat'][:, :-1, :], x_ids[:, 1:], ignore_index=self.pad_token_id)
+            loss_z = self.disc_z.loss(output_supervised_seperated['z_hat'][:, :-1, :], z_ids[:, 1:], ignore_index=self.pad_token_id)
             loss_supervised_seperated = self.loss_coeff['supervised_seperated_x'] * loss_x + self.loss_coeff['supervised_seperated_z'] * loss_z
             outputs['supervised_seperated'] = output_supervised_seperated
             losses['supervised_seperated'] = loss_supervised_seperated
@@ -232,7 +232,7 @@ class XZAutoencoder(LightningModule):
         loss = 0 
         for key in losses:
             if losses[key] is not None and self.loss_coeff.get(key) is not None:
-                self.log(f'{stage}/{key}', losses[key], batch_size=self.batch_size, prog_bar=True)
+                self.log(f'{stage}/loss/{key}', losses[key], batch_size=self.batch_size)
                 loss += self.loss_coeff[key] * losses[key]  
 
         self.log(name=f'{stage}/loss', value=loss, batch_size=self.batch_size, prog_bar=True)  
@@ -306,6 +306,11 @@ class XZAutoencoder(LightningModule):
 
 
     def accuracy_measures(self, ids, hat_ids, stage, variable, type):
+        
+        # shifting to make the sequences aligned, removing bos
+        ids = ids[:, 1:]
+        hat_ids = hat_ids[:, :-1]
+
         #Completeness test
         value = self.completeness[variable](ids, hat_ids)
         self.log(f'{stage}/{type}/completeness/{variable}', value, batch_size=self.batch_size)
