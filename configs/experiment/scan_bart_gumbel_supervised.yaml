@@ -13,7 +13,7 @@ defaults:
 
 # name of the run determines folder name in logs
 name: "scan_symae"
-run_name: "supervised-bert_gpt2-gumbel" 
+run_name: "supervised-bart-gumbel" 
 
 track_gradients: Yes
 overfit_batch: 0
@@ -31,8 +31,8 @@ model:
       supervised_seperated_z: 1.0
   
   modules:
-    model_x_to_z: ${model.sequence_to_sequence_model.bert_gpt2}
-    model_z_to_x: ${model.sequence_to_sequence_model.bert_gpt2}
+    model_x_to_z: ${model.sequence_to_sequence_model.bart}
+    model_z_to_x: ${model.sequence_to_sequence_model.bart}
     disc_x: ${model.discretizer.gumbel}
     disc_z: ${model.discretizer.gumbel}
   

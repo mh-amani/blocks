@@ -12,6 +12,8 @@ defaults:
   - sequence_to_sequence_model:
     - bert_bert
     - bert_gpt2
+    - gpt2_gpt2
+    - bart
 
 special_tokens: ["[pad]", "[bos]", "[eos]", "[unk]"]
 

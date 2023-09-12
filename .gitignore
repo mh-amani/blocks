@@ -139,5 +139,6 @@ outputs/
 checkpoints/
 
 config_tree.txt
-
+enviroment.yml
+best_ckpt_path.txt
 

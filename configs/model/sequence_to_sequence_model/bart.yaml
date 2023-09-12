@@ -1,0 +1,21 @@
+bart:
+  _target_: src.models.modules.sequence_to_sequence_models.encoder_decoder.Bart
+
+  config:
+    _target_: transformers.BartConfig
+    # Maximum sequence length that this model might ever be used with
+    vocab_size: 20
+    d_model: 128
+    encoder_layers: 2
+    decoder_layers: 2
+    encoder_attention_heads: 4
+    decoder_attention_heads: 4
+    decoder_ffn_dim: 512
+    encoder_ffn_dim: 512
+    activation_function: 'gelu'
+    max_position_embeddings: 100
+
+    encoder:
+      hidden_size: ${model.sequence_to_sequence_model.bart.config.d_model}
+    decoder:
+      hidden_size: ${model.sequence_to_sequence_model.bart.config.d_model}
