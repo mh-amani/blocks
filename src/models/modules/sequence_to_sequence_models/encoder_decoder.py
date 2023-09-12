@@ -1,4 +1,4 @@
-from transformers import EncoderDecoderConfig, EncoderDecoderModel
+from transformers import EncoderDecoderConfig, EncoderDecoderModel, BartModel
 from omegaconf import OmegaConf
 import hydra
 
@@ -20,3 +20,17 @@ def EncoderDecoder(special_tokens_ids, **kwargs):
 
     return(EncoderDecoderModel(config=config))
 
+
+def Bart(special_tokens_ids, **kwargs):    
+
+    hparams = OmegaConf.create(kwargs)        
+    config = hydra.utils.instantiate(hparams.config, _recursive_ = False)
+    config.bos_token_id = special_tokens_ids['bos_token_id']
+    config.eos_token_id = special_tokens_ids['eos_token_id']
+    config.pad_token_id = special_tokens_ids['pad_token_id']
+
+    config.output_hidden_states = True
+
+    return(BartModel(config=config))
+
+    

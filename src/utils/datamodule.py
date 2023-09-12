@@ -41,11 +41,11 @@ class randomSupervisionSampler(Sampler):
             generator = self.generator
 
         for _ in range(self.num_samples // self.batch_size):
-            if random.random() < self.p_sup and self.sup_len:
+            if random.random() <= self.p_sup and self.sup_len:
                 yield from torch.randint(high=self.sup_len, size=(self.batch_size,), dtype=torch.int64, generator=generator).tolist()
             else:
                 yield from torch.randint(low=self.sup_len, high=n, size=(self.batch_size,), dtype=torch.int64, generator=generator).tolist()
-        if random.random() < self.p_sup and self.sup_len:
+        if random.random() <= self.p_sup and self.sup_len:
             yield from torch.randint(high=self.sup_len, size=(self.num_samples % self.batch_size,), dtype=torch.int64, generator=generator).tolist()
         else:
             yield from torch.randint(low=self.sup_len, high=n, size=(self.batch_size % self.batch_size,), dtype=torch.int64, generator=generator).tolist()

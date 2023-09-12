@@ -229,10 +229,10 @@ class XZAutoencoder(LightningModule):
         loss = 0 
         for key in losses:
             if losses[key] is not None and self.loss_coeff.get(key) is not None:
-                self.log(f'{stage}/{key}', losses[key])
+                self.log_dict({f'{stage}/{key}': losses[key], 'batch_size':self.batch_size, 'step':self.global_step})
                 loss += self.loss_coeff[key] * losses[key]  
 
-        self.log(f'{stage}/loss', loss, batch_size=self.batch_size)  
+        self.log_dict({f'{stage}/loss': loss, 'batch_size':self.batch_size, 'step':self.global_step})  
         
         # for key in outputs:
         #     if outputs[key] is not None:
