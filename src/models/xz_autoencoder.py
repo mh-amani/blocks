@@ -9,15 +9,14 @@ from omegaconf import OmegaConf
 from src.utils.metrics import pad_label_label, pad_logit_label
 import numpy as np
 from src.utils.general import data_type_str
+import wandb
 
 
 class XZAutoencoder(LightningModule):
-    def __init__(self, datamodule=None, **kwargs) -> None:
+    def __init__(self, **kwargs) -> None:
         super().__init__()
         
-        self.save_hyperparameters()
-
-        self.datamodule = datamodule
+        self.save_hyperparameters(ignore=["data_module",])
                 
         # if loading a pretrained model, but need to change some of the parameters
         if self.hparams.get('checkpoint_path') and self.hparams.get('substitute_config'):
@@ -42,7 +41,7 @@ class XZAutoencoder(LightningModule):
         # loss function coefficients
         self.loss_coeff = self.hparams.model_params.loss_coeff
 
-        self.batch_size = self.datamodule.dataset_parameters.batch_size
+        self.batch_size = self.hparams.dataset_parameters.batch_size
 
 
         # Metrics
@@ -191,8 +190,12 @@ class XZAutoencoder(LightningModule):
         z_ids = batch['z_ids']
 
         # logging the supervision type, 10 for only x, 01 for only z, 11 for both :/ 
-        self.log_dict({f"{stage}/x_supervision": data_type[0], 'z_supervision':data_type[1], 
-                       'global_step': self.global_step}, batch_size=self.datamodule.dataset_parameters.batch_size)
+        # self.log_dict.__code__.co_varnames
+        wandb.log({'x_data_available': data_type[0], 'z_data_available': data_type[1],
+                   'global_step': self.global_step, 'batch_size': self.batch_size})
+        # self.log(f"{stage}/x_data_available", int(data_type[0]), batch_size=self.batch_size)
+        # self.log(f"{stage}/z_data_available", int(data_type[1]), batch_size=self.batch_size)
+        # self.log('global_step', int(self.global_step), batch_size=self.batch_size)
         
         outputs = {}
         outputs['supervised_seperated'] = None
@@ -229,10 +232,10 @@ class XZAutoencoder(LightningModule):
         loss = 0 
         for key in losses:
             if losses[key] is not None and self.loss_coeff.get(key) is not None:
-                self.log_dict({f'{stage}/{key}': losses[key], 'batch_size':self.batch_size, 'step':self.global_step})
+                self.log(f'{stage}/{key}', losses[key], batch_size=self.batch_size)
                 loss += self.loss_coeff[key] * losses[key]  
 
-        self.log_dict({f'{stage}/loss': loss, 'batch_size':self.batch_size, 'step':self.global_step})  
+        self.log(name=f'{stage}/loss', value=loss, batch_size=self.batch_size)  
         
         # for key in outputs:
         #     if outputs[key] is not None:
@@ -261,11 +264,10 @@ class XZAutoencoder(LightningModule):
     
     def on_train_epoch_end(self):
         schedulers = self.lr_schedulers()
-        for scheduler in schedulers:
+        for id, scheduler in enumerate(schedulers):
             # If the selected scheduler is a ReduceLROnPlateau scheduler.
             scheduler.step(self.trainer.callback_metrics[self.hparams.lr_scheduler.monitor])
-            self.log_dict({"reconstructor_LR":scheduler._last_lr[0],'global_step': self.global_step})
-
+            self.log(name=f'lr-scheduler/{self.module_names[id]}', value=scheduler._last_lr[0], batch_size=self.batch_size)
 
     def compute_accuracy_measures(self, batch, stage):
         assert np.all(batch['data_type']), "compute_accuracy_measures: data_type must be supervised"
@@ -306,24 +308,24 @@ class XZAutoencoder(LightningModule):
     def accuracy_measures(self, ids, hat_ids, stage, variable, type):
         #Completeness test
         value = self.completeness[variable](ids, hat_ids)
-        self.log(f'{stage}/{type}/completeness/{variable}', value)
+        self.log(f'{stage}/{type}/completeness/{variable}', value, batch_size=self.batch_size)
         
         
         #Homogeneity test
         value = self.homogeneity[variable](ids, hat_ids)
-        self.log(f'{stage}/{type}/homogeneity/{variable}', value)
+        self.log(f'{stage}/{type}/homogeneity/{variable}', value, batch_size=self.batch_size)
 
         #Accuracy test
         value = self.accuracy[variable](ids, hat_ids)
-        self.log(f'{stage}/{type}/accuracy/{variable}', value)
+        self.log(f'{stage}/{type}/accuracy/{variable}', value, batch_size=self.batch_size)
 
         #Accuracy sentence test
         value = self.accuracy_sentence[variable](ids, hat_ids)
-        self.log(f'{stage}/{type}/accuracy_sentence/{variable}', value)
+        self.log(f'{stage}/{type}/accuracy_sentence/{variable}', value, batch_size=self.batch_size)
 
         #Token homogeneity test
         value = self.token_homogeneity[variable](ids, hat_ids)
-        self.log(f'{stage}/{type}/token_homogeneity/{variable}', value)
+        self.log(f'{stage}/{type}/token_homogeneity/{variable}', value, batch_size=self.batch_size)
 
         # if self.hparams.get('write_testing_output', True):
         #     step_summary = {'stage': stage, 'type': type, 'x_ids': x_ids, 'x_hat_ids': x_hat_ids, 'z_ids': z_ids, 'z_hat_ids': z_hat_ids}
@@ -390,6 +392,8 @@ class XZAutoencoder(LightningModule):
         disc_x_optimizer_dict["scheduler"] = disc_x_optimizer_scheduler
         disc_z_optimizer_dict = OmegaConf.to_container(self.hparams.lr_scheduler.disc_z_scheduler_dict, resolve=True)
         disc_z_optimizer_dict["scheduler"] = disc_z_optimizer_scheduler
+
+        self.module_names = ['model_x_to_z', 'model_z_to_x', 'disc_x', 'disc_z']
         
 
         # formatter_scheduler_dict = OmegaConf.to_container(self.hparams.lr_scheduler.formatter_scheduler_dict, resolve=True)
@@ -399,9 +403,7 @@ class XZAutoencoder(LightningModule):
 
         return [model_x_to_z_optimizer, model_z_to_x_optimizer, disc_x_optimizer, disc_z_optimizer], \
                 [model_x_to_z_optimizer_dict, model_z_to_x_optimizer_dict, disc_x_optimizer_dict, disc_z_optimizer_dict]
-    # [model_x_to_z_optimizer_scheduler, model_z_to_x_optimizer_scheduler, disc_x_optimizer_scheduler, disc_z_optimizer_scheduler]
-        #
-        # return [formatter_optimizer, reconstructor_optimizer], [formatter_scheduler_dict, reconstructor_scheduler_dict]
+   
     
     
     def _update_params(self, params, new_params):

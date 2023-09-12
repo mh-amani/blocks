@@ -2,6 +2,7 @@ from typing import Type,Sequence
 import functools
 from pytorch_lightning import Callback, LightningModule, Trainer
 from src.schedulers.abstract_scheduler import AbstractScheduler
+import wandb
 
 class SchedulerCallback(Callback):
     """
@@ -59,7 +60,7 @@ class SchedulerCallback(Callback):
         setattr(self.hyperparameter_layer_pl ,self.hyperparameter_pl_name ,current_hyperparameter_val)
         pl_module.save_hyperparameters()
         
-        pl_module.log_dict({self.hyperparameter_name: new_hyperparameter_value, 'global_step': pl_module.global_step})
-
+        # pl_module.log_dict({self.hyperparameter_name: new_hyperparameter_value, 'global_step': pl_module.global_step})
+        wandb.log({self.hyperparameter_name: new_hyperparameter_value, 'global_step': pl_module.global_step})
         
 # trainer.train_dataloader.sampler.p_sup

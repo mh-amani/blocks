@@ -39,7 +39,8 @@ def train(config: DictConfig) -> Optional[float]:
     datamodule: LightningDataModule = hydra.utils.instantiate(config.datamodule, _recursive_=False)
     # Initialize the LIT model
     log.info(f"Instantiating model <{config.model._target_}>")
-    model: LightningModule = hydra.utils.instantiate(config.model, datamodule=datamodule, _recursive_=False)
+    # model: LightningModule = hydra.utils.instantiate(config.model, datamodule=datamodule, _recursive_=False)
+    model: LightningModule = hydra.utils.instantiate(config.model, dataset_parameters=datamodule.dataset_parameters ,_recursive_=False)
 
     # Call the model's setup_collate_fn (if it is implemented; otherwise proceed with the PyTorch's default collate_fn)
     setup_collate_fn = getattr(model, "setup_collate_fn", None)
