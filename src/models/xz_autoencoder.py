@@ -232,10 +232,10 @@ class XZAutoencoder(LightningModule):
         loss = 0 
         for key in losses:
             if losses[key] is not None and self.loss_coeff.get(key) is not None:
-                self.log(f'{stage}/{key}', losses[key], batch_size=self.batch_size)
+                self.log(f'{stage}/{key}', losses[key], batch_size=self.batch_size, prog_bar=True)
                 loss += self.loss_coeff[key] * losses[key]  
 
-        self.log(name=f'{stage}/loss', value=loss, batch_size=self.batch_size)  
+        self.log(name=f'{stage}/loss', value=loss, batch_size=self.batch_size, prog_bar=True)  
         
         # for key in outputs:
         #     if outputs[key] is not None:
@@ -317,7 +317,7 @@ class XZAutoencoder(LightningModule):
 
         #Accuracy test
         value = self.accuracy[variable](ids, hat_ids)
-        self.log(f'{stage}/{type}/accuracy/{variable}', value, batch_size=self.batch_size)
+        self.log(f'{stage}/{type}/accuracy/{variable}', value, batch_size=self.batch_size, prog_bar=True)
 
         #Accuracy sentence test
         value = self.accuracy_sentence[variable](ids, hat_ids)

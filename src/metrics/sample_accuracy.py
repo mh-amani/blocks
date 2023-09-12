@@ -29,8 +29,7 @@ class Accuracy(Metric):
             num_correct = torch.sum(matches).long()
             num_total = len(matches)
 
-
-        self.total_correct += num_correct
+        self.total_correct += num_correct.to(self.device)
         self.total += num_total
 
     def compute(self):
