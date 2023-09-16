@@ -191,9 +191,6 @@ class XZAutoencoder(LightningModule):
         x_hat_ids, x_hat_scores = self.disc_x(out_x).values()        
         z_hat_ids, z_hat_scores = self.disc_z(out_z).values()
 
-        # x_hat = x_hat * x_attention_mask.unsqueeze(-1)
-        # z_hat = z_hat * z_attention_mask.unsqueeze(-1)
-
         return {'x_hat_ids': x_hat_ids, 'x_hat_scores': x_hat_scores,
                 'z_hat_ids': z_hat_ids, 'z_hat_scores': z_hat_scores}
     
