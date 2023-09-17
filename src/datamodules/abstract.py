@@ -182,7 +182,7 @@ class AbstractPLDataModule(LightningDataModule, ABC):
             batch_size=self.dataset_parameters["batch_size"],
             num_workers=self.dataset_parameters["num_workers"],
             collate_fn=self.collate_fn,
-            # sampler=self.train_sampler,
+            sampler=self.train_sampler,
             drop_last=False,
         )
     
