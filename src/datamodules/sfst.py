@@ -1,129 +1,46 @@
+from .abstract import AbstractDataset, AbstractPLDataModule
 import numpy as np
-from torch.utils.data import random_split, Dataset, Subset, DataLoader
+from torch.utils.data import random_split, Dataset, Subset
 import torch
 import random
 import networkx as nx
 from pynini import Fst, Arc
 from tqdm import tqdm
-import pickle
 from collections import Counter
-from pathlib import Path
-from typing import Optional, Callable
 import torch
 import hydra
-from pytorch_lightning import LightningDataModule
-from .utils.random_supervision_scheduler import random_supervision_sampler
+from datasets import Dataset as HFDataset
 
-class SFSTDatamodule(LightningDataModule):
 
-    def __init__(self, collate_fn: Callable = None, num_workers: int = 0, **kwargs):
-        
-        super().__init__()
+class SFSTDatamodule(AbstractPLDataModule):
 
-        # TODO: Is this necessary?
-        self.save_hyperparameters()
+    def __init__(self, dataset_parameters, **kwargs):
+        super().__init__(**kwargs)
+        self.dataset_parameters = dataset_parameters
 
-        self.collate_fn = collate_fn
+        self.data_train = hydra.utils.instantiate(self.params['datasets']['train'], self.dataset_parameters)
+        self.data_val = hydra.utils.instantiate(self.params['datasets']['val'], self.dataset_parameters)
+        self.data_test = hydra.utils.instantiate(self.params['datasets']['test'], self.dataset_parameters)
 
-        # Concerning the loaders
-        self.num_workers = num_workers
-    
-        self.data_train: Optional[Dataset] = None
-        self.data_val: Optional[Dataset] = None
-        self.data_test: Optional[Dataset] = None
-        
-        self.dataset_parameters = kwargs["dataset_parameters"]
-        self.seed = self.dataset_parameters['seed']
 
-    def set_collate_fn(self, collate_fn):
-        self.collate_fn = collate_fn
 
-    def prepare_data(self):
-        """Download data if needed. This method is called only from a single GPU.
-        Do not use it to assign state (self.x = y)."""
-        pass
-
-    def setup(self, stage: Optional[str] = None):
-        """Load data. Set variables: self.data_train, self.data_val, self.data_test.
-        Note that the result of hydra instantiation inherits abstract_grid_dataset for which we have:
-            def __getitem__(self, idx):
-                return {"id": self.data[idx][0], "text": self.data[idx][1]}
-        So when a sample from such dataset is picked (self.data_train/val/test), the sample has the
-        above form, and to extract its text, we need to pass the keyword "text".
-        """
-        if stage == "fit" or stage is None:
-            self.data_train = hydra.utils.instantiate(self.dataset_parameters["train"]["dataset"])
-            self.data_val = hydra.utils.instantiate(self.dataset_parameters["val"]["dataset"])
-
-        if stage == "validate" or stage is None:
-            self.data_val = hydra.utils.instantiate(self.dataset_parameters["val"]["dataset"])
-
-        if stage == "test" or stage is None:
-            self.data_test = hydra.utils.instantiate(self.dataset_parameters["test"]["dataset"])
-        
-            
-    def train_dataloader(self):
-        g = torch.Generator()
-        g.manual_seed(self.seed)
-        self.train_sampler = random_supervision_sampler(self.data_train, self.dataset_parameters['p_sup'] ,generator=g, batch_size=self.dataset_parameters["train"]["dataloader"]["batch_size"])
-        return DataLoader(
-            dataset=self.data_train,
-            batch_size=self.dataset_parameters["train"]["dataloader"]["batch_size"],
-            num_workers=self.dataset_parameters["train"]["dataloader"]["num_workers"],
-            collate_fn=self.collate_fn,
-            sampler=self.train_sampler,
-            drop_last=False,
-        )
-    
-
-    def val_dataloader(self):
-        return DataLoader(
-            dataset=self.data_val,
-            batch_size=self.dataset_parameters["val"]["dataloader"]["batch_size"],
-            num_workers=self.dataset_parameters["val"]["dataloader"]["num_workers"],
-            collate_fn=self.collate_fn,
-            drop_last=False,
-            shuffle=False,
-        )
-
-    def test_dataloader(self):
-        return DataLoader(
-            dataset=self.data_test,
-            batch_size=self.dataset_parameters["test"]["dataloader"]["batch_size"],
-            num_workers=self.dataset_parameters["test"]["dataloader"]["num_workers"],
-            collate_fn=self.collate_fn,
-            drop_last=False,
-            shuffle=False,
-        )
-
-class SFSTDataset(Dataset):
+class SFSTDataset(AbstractDataset):
     has_split = False # class variable to track whether train-val split has been performed
 
-    def __init__(self, **kwargs):
-        """
-        Parameters
-        ----------
-        kwargs: properties of the decoder and latent's discrete structure.
-
-        Returns
-        -------
-        An instance of the numeric sequence dataset that extends torch.utils.data.Dataset.
-        """
-        super().__init__()
-        self.params = kwargs
-        self.split = kwargs['split']
-        self.sup_ratio = kwargs['sup_ratio']
+    def __init__(self, dataset_parameters, **kwargs):
+       
+        super().__init__(dataset_parameters, **kwargs)
+        self.seed = dataset_parameters['seed']
+        self.dataset_parameters = dataset_parameters
+        self.split = self.params['split']
         assert self.split in {"train", "val", "test"}, "Unexpected split reference"
         
 
         if not SFSTDataset.has_split:  # perform split if it has not been done yet
-            SFSTDataset.overfit_batch = kwargs['overfit_batch']
+            SFSTDataset.overfit_batch = dataset_parameters['overfit_batch']
+            self.loaded_dataset = self._load_data(self.dataset_parameters)
+            self.train_ratio = dataset_parameters['train_ratio']
             
-            self.loaded_dataset = self._load_data(self.params)
-            
-            self.train_ratio = kwargs['train_ratio']
-            
-            # self.loaded_dataset['train'].shuffle(seed=kwargs['seed']) doesn't do anything!
             # overfit batch, using small batch of same data for training and validation
             if SFSTDataset.overfit_batch:
                 self.train_dataset, self.val_dataset = self.set_same_batch(self.loaded_dataset, SFSTDataset.overfit_batch)
@@ -135,19 +52,23 @@ class SFSTDataset(Dataset):
             SFSTDataset.datum = {}
             SFSTDataset.datum['train'] = self.train_dataset
             SFSTDataset.train_len = len(self.train_dataset)
-            SFSTDataset.sup_len = int(self.sup_ratio * SFSTDataset.train_len)
             SFSTDataset.datum['val'] = self.val_dataset
             SFSTDataset.datum['test'] = self.test_dataset
 
             SFSTDataset.has_split = True  # mark that the split has been performed
 
+            self.assign_data_type(SFSTDataset.train_len)
+
         self.data = SFSTDataset.datum[self.split]
+        self.data_type = SFSTDataset.data_type[self.split]
+
 
     def split_train_val(self, loaded_dataset):
         assert (self.train_ratio > 0 and self.train_ratio < 1), "Unexpected train_test ratio" 
         train_size = int(self.train_ratio * len(loaded_dataset['train']))
         lengths = [train_size, len(loaded_dataset['train']) - train_size]
-        train_dataset, val_dataset = random_split(loaded_dataset['train'], lengths, generator=torch.Generator().manual_seed(self.params['seed']))
+        train_dataset, val_dataset = random_split(loaded_dataset['train'], lengths, 
+                                                  generator=torch.Generator().manual_seed(self.seed))
         return train_dataset, val_dataset 
 
     def set_same_batch(self, dataset, batchsize):
@@ -157,12 +78,8 @@ class SFSTDataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, idx):
-        if self.split == "train":
-            supervision = idx < (self.sup_ratio * SFSTDataset.train_len)
-        else:
-            supervision = True
-        return {"id": idx, "text": self.data[idx]['commands'], "latent": self.data[idx]['actions'], 'supervision': supervision}
-
+        return {"id": idx, "X": self.data[idx]['X'], 
+                "Z": self.data[idx]['Z'], 'data_type': self.data_type[idx]}
 
     def _load_data(self, load_dataset_params):
         dataset_size = load_dataset_params['dataset_size']
@@ -181,8 +98,6 @@ class SFSTDataset(Dataset):
                 in_al.append(i[0])
                 out_al.append(i[1])
 
-        in_len = len(set(in_al))
-        out_len = len(set(out_al))
         inputs, outputs = self.generate_dataset(FST_dic, max_length)
         assert len(inputs) == len(outputs)
 
@@ -200,10 +115,7 @@ class SFSTDataset(Dataset):
             return {'train': SFSTDataset._create_dataset(train_inputs, train_outputs), 'test': SFSTDataset._create_dataset(test_inputs, test_outputs)}
 
     def _create_dataset(inputs, outputs):
-        dataset = []
-        for i, j in zip(inputs, outputs):
-            dataset.append({'commands': j, 'actions': i})
-        return dataset
+        return HFDataset.from_dict({'X': inputs, 'Z': outputs})
     
     def generate_FST(self, node_size, output_alphabet_size=8, maximum_input_alphabet_delta=-1, p_empty_emission=0.5):
         while True:
@@ -323,8 +235,8 @@ class SFSTDataset(Dataset):
                         stopper = True
                 except:
                     run = False
-            inputs.append("".join([str(i) + " " for i in input_path]))
-            outputs.append("".join([str(i)+ " " for i in output_path]))
+            inputs.append(("".join([str(i) + " " for i in input_path]))[:-1])
+            outputs.append(("".join([str(i)+ " " for i in output_path]))[:-1])
 
         test = [str(i) for i in inputs]
         samples = list(set(test))

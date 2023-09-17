@@ -58,7 +58,7 @@ model:
 
 
 datamodule:
-  data_type_sampling_probability: [0.9, 0.05, 0.05] # [xz, x, z]
+  data_type_sampling_probability: [0.8, 0.1, 0.1] # [xz, x, z]
   dataset_parameters:
     supervision_ratio: [0.05, 0.45, 0.5] # [xz, x, z]
     batch_size: 32
