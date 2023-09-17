@@ -29,10 +29,10 @@ model:
   model_params:
     loss_coeff:
       # turn them to -1 to disable that loss, (in training, not in validation)
-      xzx: -1.0
+      xzx: 1.0
       zxz: 1.0
-      supervised_seperated_x: -1.0
-      supervised_seperated_z: -1.0
+      supervised_seperated_x: 1.0
+      supervised_seperated_z: 1.0
     
     acc_grad_batch: 16
   
@@ -58,8 +58,9 @@ model:
 
 
 datamodule:
+  data_type_sampling_probability: [0.9, 0.05, 0.05] # [xz, x, z]
   dataset_parameters:
-    sup_ratio: 1.0
+    supervision_ratio: [0.05, 0.45, 0.5] # [xz, x, z]
     batch_size: 32
     num_workers: 48
 
