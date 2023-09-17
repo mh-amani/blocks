@@ -6,8 +6,8 @@ gpt2_gpt2:
     # Maximum sequence length that this model might ever be used with
 
     vocab_size: 20
-    n_positions: 100
     n_embd: 128
+    n_positions: ${model.model_params.max_x_length}
     n_layer: 2
     n_head: 4
     activation_function: 'gelu_new'
@@ -17,8 +17,8 @@ gpt2_gpt2:
     _target_: transformers.GPT2Config
     
     vocab_size: 20
-    n_positions: 100
     n_embd: 128
+    n_positions: ${model.model_params.max_z_length}
     n_layer: 2
     n_head: 4
     activation_function: 'gelu_new'

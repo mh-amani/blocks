@@ -36,14 +36,14 @@ early_stopping:
 #     hp_end: 1.5
 #     power: 1.0
 
-z_supervised_scheduler:
-  _target_: src.callbacks.scheduler_callback.SchedulerCallback
-  hyperparameter_location: trainer.datamodule.train_sampler.p_sup
-  hyperparameter_location_pl: model_params.prob_z_sup
-  scheduler:
-    _target_: src.schedulers.linear_scheduler.LinearScheduler
-    num_warmup_steps: 25
-    num_training_steps: 80
-    hp_init: 1.0
-    hp_end: 1.0
-    power: 1.0
+# z_supervised_scheduler:
+#   _target_: src.callbacks.scheduler_callback.SchedulerCallback
+#   hyperparameter_location: trainer.datamodule.train_sampler.p_sup
+#   hyperparameter_location_pl: model_params.prob_z_sup
+#   scheduler:
+#     _target_: src.schedulers.linear_scheduler.LinearScheduler
+#     num_warmup_steps: 25
+#     num_training_steps: 80
+#     hp_init: 1.0
+#     hp_end: 1.0
+#     power: 1.0

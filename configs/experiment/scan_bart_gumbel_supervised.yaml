@@ -19,8 +19,8 @@ track_gradients: Yes
 overfit_batch: 0
 
 trainer:
-  devices: 'auto' # also numbers
-  accelerator: 'cpu' #cpu, tpu, (devices=4, accelerator="gpu", strategy="ddp"), (devices="auto", accelerator="auto")
+  devices: [0] # 'auto', or numbers like 2, [0]
+  accelerator: 'gpu' #cpu, tpu, (devices=4, accelerator="gpu", strategy="ddp"), (devices="auto", accelerator="auto")
 
 model:
   model_params:
@@ -37,7 +37,7 @@ model:
     disc_z: ${model.discretizer.gumbel}
   
   optimizer:
-    lr: 0.01
+    lr: 0.003
 
 
 datamodule:

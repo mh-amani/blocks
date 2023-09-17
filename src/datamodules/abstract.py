@@ -8,6 +8,7 @@ import numpy as np
 
 from pytorch_lightning import LightningDataModule
 from torch.utils.data import DataLoader, Dataset
+from src.utils.datamodule import randomSupervisionSampler
 
 from src.utils.general import get_pylogger
 
@@ -26,7 +27,10 @@ class AbstractDataset(Dataset):
         self.dataset_parameters = dataset_parameters
         self.params = kwargs
         self.random_state = np.random.RandomState(self.dataset_parameters["seed"])
-    
+
+        self.supervision_ratio = torch.tensor(self.dataset_parameters["supervision_ratio"]).float()
+        self.supervision_ratio = self.supervision_ratio / self.supervision_ratio.sum()
+
     def __len__(self):
         raise NotImplementedError()
 
@@ -51,6 +55,21 @@ class AbstractDataset(Dataset):
         bootstrap_data = [data[i] for i in bootstrap_ids]
         return bootstrap_data
     
+    def assign_data_type(self, train_length):
+        """
+        Add a supervision label to each data point in the train dataset
+        """
+        AbstractDataset.sup_len_x = int(self.supervision_ratio[0] * train_length)
+        AbstractDataset.sup_len_z = int(self.supervision_ratio[1] * train_length)
+        # data_type should be [X_available, Z_available], where 1 means available and 0 means unavailable
+        AbstractDataset.data_type = {}
+        AbstractDataset.data_type['train'] = np.ones((len(self.train_dataset), 2), dtype=np.bool_)
+        AbstractDataset.data_type['train'][AbstractDataset.sup_len_x:AbstractDataset.sup_len_x + AbstractDataset.sup_len_z] = np.array([1, 0], dtype=np.bool_)
+        AbstractDataset.data_type['train'][AbstractDataset.sup_len_x + AbstractDataset.sup_len_z:] = np.array([0, 1], dtype=np.bool_)
+
+        AbstractDataset.data_type['val'] = np.ones((len(self.val_dataset),2), dtype=np.bool_)
+        AbstractDataset.data_type['test'] = np.ones((len(self.test_dataset),2), dtype=np.bool_)
+
     def __getitem__(self, idx):
         # supervision can be X, Z or XZ
         return {"id": idx, "X": self.data[idx]['X'], "Z": self.data[idx]['Z'], 'data_type': self.data_type[idx]}
@@ -90,7 +109,7 @@ class AbstractPLDataModule(LightningDataModule, ABC):
     split, transform and process the data.
     """
 
-    def __init__(self, seed: int, p_sup: int,collate_fn: Callable = None, num_workers: int = 0, **kwargs):
+    def __init__(self, seed: int,collate_fn: Callable = None, num_workers: int = 0, **kwargs):
         """
 
         Parameters
@@ -115,12 +134,13 @@ class AbstractPLDataModule(LightningDataModule, ABC):
         # Concerning the loaders
         self.num_workers = num_workers
         self.seed = seed
-        self.p_sup = p_sup
 
         self.data_train: Optional[Dataset] = None
         self.data_val: Optional[Dataset] = None
         self.data_test: Optional[Dataset] = None
 
+        self.data_type_sampling_probability = torch.tensor(kwargs["data_type_sampling_probability"]).float()
+        self.data_type_sampling_probability = self.data_type_sampling_probability / self.data_type_sampling_probability.sum()
 
     def set_collate_fn(self, collate_fn):
         self.collate_fn = collate_fn
@@ -152,15 +172,38 @@ class AbstractPLDataModule(LightningDataModule, ABC):
     def train_dataloader(self):
         g = torch.Generator()
         g.manual_seed(self.seed)
+
+        self.train_sampler = randomSupervisionSampler(
+            self.data_train, self.data_type_sampling_probability, generator=g, 
+            batch_size=self.dataset_parameters["batch_size"])
+        
         return DataLoader(
             dataset=self.data_train,
-            batch_size=self.dataset_parameters["train"]["dataloader"]["batch_size"],
-            num_workers=self.dataset_parameters["train"]["dataloader"]["num_workers"],
+            batch_size=self.dataset_parameters["batch_size"],
+            num_workers=self.dataset_parameters["num_workers"],
             collate_fn=self.collate_fn,
+            sampler=self.train_sampler,
             drop_last=False,
-            shuffle=True,
-            generator=g,
         )
+    
+    def val_dataloader(self):
+        dataloader = self._get_dataloader(
+            data=self.data_val,
+            dataloader_parameters=self.dataset_parameters,
+            drop_last=False,
+            shuffle=False,
+        )
+        return dataloader
+
+    def test_dataloader(self):
+        dataloader = self._get_dataloader(
+            data=self.data_test,
+            dataloader_parameters=self.dataset_parameters,
+            drop_last=False,
+            shuffle=False,
+        )
+        return dataloader
+        
 
     def _get_dataloader(self, data, dataloader_parameters, drop_last, shuffle):
         return DataLoader(
@@ -171,27 +214,8 @@ class AbstractPLDataModule(LightningDataModule, ABC):
             drop_last=drop_last,
             shuffle=shuffle,
         )
+    
 
-    def val_dataloader(self):
-        # if isinstance(self.data_val, list):
-        #     return [
-        #         self._get_dataloader(data, self.dataset_parameters["val"]["dataloader"], drop_last=False, shuffle=False)
-        #         for data in self.data_val
-        #     ]
-
-        return self._get_dataloader(
-            self.data_val, self.dataset_parameters["val"]["dataloader"], drop_last=False, shuffle=False
-        )
-
-    def test_dataloader(self):
-        return DataLoader(
-            dataset=self.data_test,
-            batch_size=self.dataset_parameters["test"]["dataloader"]["batch_size"],
-            num_workers=self.dataset_parameters["test"]["dataloader"]["num_workers"],
-            collate_fn=self.collate_fn,
-            drop_last=False,
-            shuffle=False,
-        )
 
     # def on_save_checkpoint(self, checkpoint):
     # def state_dict(self):
@@ -202,3 +226,5 @@ class AbstractPLDataModule(LightningDataModule, ABC):
     # def load_state_dict(self, state_dict):
     #     # restore the state based on what you tracked in (def state_dict)
     #     self.current_train_batch_index = state_dict["current_train_batch_index"]
+
+    

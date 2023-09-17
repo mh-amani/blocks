@@ -1,0 +1,2 @@
+pip install --upgrade omegaconf
+pip install --upgrade hydra-core

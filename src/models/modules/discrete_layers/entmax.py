@@ -9,20 +9,10 @@ class EntmaxDiscreteLayer(AbstractDiscreteLayer):
         super().__init__(dims, **kwargs)
         self.alpha = kwargs['alpha']
 
-    def forward(self, x):
-        x_in = self.linear_in(x)
-        x_probs = entmax_bisect(x_in, alpha=self.alpha, dim=-1)
-        x_out = self.linear_out(x_probs)
-        return x_out
-
     def discretize(self, x) -> dict:
-        x_in = self.linear_in(x)
-        x_probs = entmax_bisect(x_in, alpha=self.alpha, dim=-1)
+        x_probs = entmax_bisect(x, alpha=self.alpha, dim=-1)
         return x_probs
-
-    def embed_from_id(self, x):
-        classes = torch.eye(self.vocab_size, device=x.device)[x]
-        return self.linear_out(classes)
     
     def decode(self, x):
         return torch.argmax(x, dim=-1)
+
