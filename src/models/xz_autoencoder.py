@@ -56,6 +56,9 @@ class XZAutoencoder(LightningModule):
         self.max_x_length = self.hparams.model_params.max_x_length
         self.max_z_length = self.hparams.model_params.max_z_length
 
+        self.acc_grad_batch = self.hparams.model_params.acc_grad_batch
+        assert self.acc_grad_batch > 0, "acc_grad_batch must be greater than 0"
+
 
     def setup(self, stage: str) -> None:
         disc_conf_x, disc_conf_z = self.discretizer_dimensions()
@@ -221,17 +224,17 @@ class XZAutoencoder(LightningModule):
         losses['supervised_seperated_x'] = None
         losses['supervised_seperated_z'] = None
 
-        if data_type[0] and (stage!='train' or self.loss_coeff['xzx']) > 0:
+        if data_type[0] and (stage!='train' or self.loss_coeff['xzx'] > 0):
             output_xzx = self.forward_xzx(x_ids)
             loss_xzx = self.disc_x.loss(output_xzx['x_hat_scores'][:, :-1, :], x_ids[:, 1:], ignore_index=self.pad_token_id)
             outputs['xzx'] = output_xzx
             losses['xzx'] = loss_xzx   
-        if data_type[1] and (stage!='train' or self.loss_coeff['zxz']) > 0:
+        if data_type[1] and (stage!='train' or self.loss_coeff['zxz'] > 0):
             output_zxz = self.forward_zxz(z_ids)
             loss_zxz = self.disc_z.loss(output_zxz['z_hat_scores'][:, :-1, :], z_ids[:, 1:], ignore_index=self.pad_token_id)
             outputs['zxz'] = output_zxz
             losses['zxz'] = loss_zxz 
-        if data_type[0] and data_type[1]:
+        if data_type[0] and data_type[1] and (stage!='train' or (self.loss_coeff['supervised_seperated_z'] > 0 and self.loss_coeff['supervised_seperated_x'] > 0 )):
             output_supervised_seperated = self.forward_supervised_seperated(x_ids, z_ids)
             loss_x = self.disc_x.loss(output_supervised_seperated['x_hat_scores'][:, :-1, :], x_ids[:, 1:], ignore_index=self.pad_token_id)
             loss_z = self.disc_z.loss(output_supervised_seperated['z_hat_scores'][:, :-1, :], z_ids[:, 1:], ignore_index=self.pad_token_id)
@@ -260,6 +263,7 @@ class XZAutoencoder(LightningModule):
             
     def training_step(self, batch, batch_idx):
         loss, _, _ = self.forward(batch)
+        loss = loss / self.acc_grad_batch * 1.0
         
         optimizers = self.optimizers()
         for optimizer in optimizers:
@@ -267,10 +271,12 @@ class XZAutoencoder(LightningModule):
         
         self.manual_backward(loss)
     
-        # clip gradients
-        for optimizer in optimizers:
-            self.clip_gradients(optimizer, gradient_clip_val=0.5, gradient_clip_algorithm="norm")
-            optimizer.step()
+        if (batch_idx + 1) % self.acc_grad_batch == 0:
+            for optimizer in optimizers:
+                self.clip_gradients(optimizer, gradient_clip_val=0.5, gradient_clip_algorithm="norm")
+                optimizer.step()
+                optimizer.zero_grad()
+        
         
         return loss
     
