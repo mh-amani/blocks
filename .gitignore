@@ -75,6 +75,7 @@ target/
 
 # Jupyter Notebook
 .ipynb_checkpoints
+*.ipynb
 
 # IPython
 profile_default/
@@ -142,3 +143,4 @@ config_tree.txt
 enviroment.yml
 best_ckpt_path.txt
 
+data/
