@@ -1,0 +1,70 @@
+
+_target_: src.datamodules.pcfg_set.PCFGSetDatamodule
+dataset_target_: src.datamodules.pcfg_set.PCFGSetDataset
+seed: 42
+tokenize_in_dataset: True
+data_type_sampling_probability: [0.9, 0.05, 0.05] # [xz, x, z]
+
+experiment: "systematicity" # "systematicity", "substitutivity", "productivity", "localism", "overgeneralization", "pcfgset"
+
+experiment_paths:
+  systematicity:
+    train:
+      src_path: "data/pcfgset/systematicity/train.src"
+      tgt_path: "data/pcfgset/systematicity/train.tgt"
+    test:
+      src_path: "data/pcfgset/systematicity/test.src"
+      tgt_path: "data/pcfgset/systematicity/test.tgt"
+  productivity:
+    train:
+      src_path: "data/pcfgset/productivity/train.src"
+      tgt_path: "data/pcfgset/productivity/train.tgt"
+    test:
+      src_path: "data/pcfgset/productivity/test.src"
+      tgt_path: "data/pcfgset/productivity/test.tgt"
+  pcfgset:
+    train:
+      src_path: "data/pcfgset/pcfgset/train.src"
+      tgt_path: "data/pcfgset/pcfgset/train.tgt"
+    test:
+      src_path: "data/pcfgset/pcfgset/test.src"
+      tgt_path: "data/pcfgset/pcfgset/test.tgt"
+  substitutivity:
+    train:
+      src_path: "data/pcfgset/substitutivity/equally_distributed/train.src"
+      tgt_path: "data/pcfgset/substitutivity/equally_distributed/train.tgt"
+    test:
+      src_path: "data/pcfgset/substitutivity/equally_distributed/test.src"
+      tgt_path: "data/pcfgset/substitutivity/equally_distributed/test.tgt"
+
+
+
+dataset_parameters:
+  seed: ${seed}
+  batch_size: 128
+  train_ratio: 0.8
+  supervision_ratio: [0.05, 0.45, 0.5] # [xz, x, z]
+  num_workers: 8
+  overfit_batch: ${overfit_batch}
+  tokenize_in_dataset: ${datamodule.tokenize_in_dataset}
+  train:
+    src_path: ${datamodule.experiment_paths[${datamodule.experiment}].train.src_path}
+    tgt_path: ${datamodule.experiment_paths[${datamodule.experiment}].train.tgt_path}
+  test:
+    src_path: ${datamodule.experiment_paths[${datamodule.experiment}].test.src_path}
+    tgt_path: ${datamodule.experiment_paths[${datamodule.experiment}].test.tgt_path}
+  
+
+datasets:
+  seed: ${seed}
+  test:
+      _target_: ${datamodule.dataset_target_}
+      split: "test"
+  
+  train:
+      _target_: ${datamodule.dataset_target_}
+      split: "train"
+      
+  val:
+      _target_: ${datamodule.dataset_target_}
+      split: "val"

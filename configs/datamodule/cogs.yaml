@@ -1,0 +1,46 @@
+
+_target_: src.datamodules.cogs.COGSDatamodule
+dataset_target_: src.datamodules.cogs.COGSDataset
+seed: 42
+tokenize_in_dataset: True
+data_type_sampling_probability: [0.9, 0.05, 0.05] # [xz, x, z]
+
+data_dir: "data/cogs/"
+
+dataset_parameters:
+  seed: ${seed}
+  batch_size: 128
+  train_ratio: 0.8
+  supervision_ratio: [0.05, 0.45, 0.5] # [xz, x, z]
+  num_workers: 8
+  overfit_batch: ${overfit_batch}
+  tokenize_in_dataset: ${datamodule.tokenize_in_dataset}
+  train:
+    tsv_path: ${datamodule.data_dir}train.tsv
+  val:
+    tsv_path: ${datamodule.data_dir}dev.tsv
+  test:
+    tsv_path: ${datamodule.data_dir}test.tsv
+  gen:
+    tsv_path: ${datamodule.data_dir}gen.tsv
+  train_100:
+    tsv_path: ${datamodule.data_dir}train_100.tsv
+  
+
+datasets:
+  seed: ${seed}
+  test:
+      _target_: ${datamodule.dataset_target_}
+      split: "test"
+  
+  train:
+      _target_: ${datamodule.dataset_target_}
+      split: "train"
+      
+  val:
+      _target_: ${datamodule.dataset_target_}
+      split: "val"
+  
+  gen:
+      _target_: ${datamodule.dataset_target_}
+      split: "gen"

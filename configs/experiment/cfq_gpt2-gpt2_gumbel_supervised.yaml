@@ -1,0 +1,74 @@
+# @package _global_
+
+# to execute this experiment run:
+# python run_train.py training=pcfg_gpt2_stacked  
+
+defaults:
+  - override /datamodule: cfq
+  - override /model: xz_autoencoder
+  - override /model/collator/tokenizer: bpe_tokenizer
+  - override /logger: wandb
+  - override /trainer: default
+# all parameters below will be merged with parameters from default configurations set above
+# this allows you to overwrite only specified parameters
+
+# name of the run determines folder name in logs
+name: "cfq_symae"
+run_name: "supervised-gpt2_gpt2-gumbel" 
+
+track_gradients: Yes
+overfit_batch: 0
+
+trainer:
+  devices: [0] # 'auto', or numbers like 2, [0]
+  accelerator: 'gpu' #cpu, tpu, (devices=4, accelerator="gpu", strategy="ddp"), (devices="auto", accelerator="auto")
+
+model:
+  collator:
+    tokenizer:
+      vocab_size: 1000
+  discretizer:
+    gumbel:
+      label_smoothing_scale: 0.0001
+  model_params:
+    loss_coeff:
+      # turn them to -1 to disable that loss, (in training, not in validation)
+      xzx: 1.0
+      zxz: 1.0
+      supervised_seperated_x: 1.0
+      supervised_seperated_z: 1.0
+    
+    acc_grad_batch: 16
+  
+  modules:
+    model_x_to_z: ${model.sequence_to_sequence_model.gpt2_gpt2}
+    model_z_to_x: ${model.sequence_to_sequence_model.gpt2_gpt2}
+    disc_x: ${model.discretizer.gumbel}
+    disc_z: ${model.discretizer.gumbel}
+  
+  optimizer:
+    lr: 0.003
+
+  lr_scheduler:
+    mode: "min"
+    factor: 0.8
+    patience: 1
+    threshold: 0.01
+    threshold_mode: "abs"
+    cooldown: 1
+    min_lr: 1e-6
+    eps: 1e-8
+    verbose: True
+
+
+datamodule:
+  # data_type_sampling_probability: [0.9, 0.05, 0.05] # [xz, x, z]
+  data_type_sampling_probability: [1., 0.0, 0.0] # [xz, x, z]
+  dataset_parameters:
+    supervision_ratio: [1., 0.0, 0.0] # [xz, x, z]
+    batch_size: 32
+    num_workers: 48
+
+
+
+

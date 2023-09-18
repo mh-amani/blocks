@@ -1,0 +1,31 @@
+
+_target_: src.datamodules.cfq.CFQDatamodule
+dataset_target_: src.datamodules.cfq.CFQDataset
+seed: 42
+tokenize_in_dataset: True
+data_type_sampling_probability: [0.9, 0.05, 0.05] # [xz, x, z]
+
+dataset_parameters:
+  seed: ${seed}
+  batch_size: 128
+  test_split: 'mcd1' # ['mcd1', 'mcd2', 'mcd3', 'question_complexity_split', 'question_pattern_split', 'query_complexity_split', 'query_pattern_split', 'random_split']
+  train_ratio: 0.8
+  supervision_ratio: [0.05, 0.45, 0.5] # [xz, x, z]
+  num_workers: 8
+  overfit_batch: ${overfit_batch}
+  tokenize_in_dataset: ${datamodule.tokenize_in_dataset}
+  
+
+datasets:
+  seed: ${seed}
+  test:
+      _target_: ${datamodule.dataset_target_}
+      split: "test"
+  
+  train:
+      _target_: ${datamodule.dataset_target_}
+      split: "train"
+      
+  val:
+      _target_: ${datamodule.dataset_target_}
+      split: "val"
