@@ -75,6 +75,7 @@ target/
 
 # Jupyter Notebook
 .ipynb_checkpoints
+*.ipynb
 
 # IPython
 profile_default/
@@ -135,10 +136,13 @@ wandb/
 # outputs
 outputs/
 
+# slurm_outputs
+slurm_err/
+slurm_out/
+
 # check points
 checkpoints/
 
 config_tree.txt
 enviroment.yml
 best_ckpt_path.txt
-

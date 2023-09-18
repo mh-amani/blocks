@@ -30,13 +30,13 @@ def SimpleWordLevelTokenizer(dataset, key, **kwargs):
 
 #     return tokenizer
 
-# def SimpleUnigramTokenizer(dataset, key, **kwargs):
-#     tokenizer = Tokenizer(models.BPE())
-#     tokenizer.pre_tokenizer = pre_tokenizers.Whitespace()
+def SimpleUnigramTokenizer(dataset, key, **kwargs):
+    tokenizer = Tokenizer(models.BPE())
+    tokenizer.pre_tokenizer = pre_tokenizers.Whitespace()
     
-#     iterator = batch_iterator(dataset, key=key, batch_size=kwargs['batch_size'])
+    iterator = batch_iterator(dataset, key=key, batch_size=kwargs['batch_size'])
     
-#     trainer = trainers.BpeTrainer(special_tokens=list(kwargs['special_tokens']), vocab_size=kwargs['vocab_size'])
-#     tokenizer.train_from_iterator(iterator, trainer=trainer, length=len(dataset))
+    trainer = trainers.BpeTrainer(special_tokens=list(kwargs['special_tokens']), vocab_size=kwargs['vocab_size'])
+    tokenizer.train_from_iterator(iterator, trainer=trainer, length=len(dataset))
 
-#     return tokenizer
+    return tokenizer
