@@ -8,7 +8,7 @@ import numpy as np
 from torch.utils.data import DataLoader, Dataset
 from typing import Callable, Optional
 import hydra
-from fairseq import tokenizer
+# from fairseq import tokenizer
 
 
 

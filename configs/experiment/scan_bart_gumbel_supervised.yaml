@@ -47,5 +47,17 @@ datamodule:
     num_workers: 48
 
 
-
+callbacks:
+  supervision_scheduler:
+    scheduler_xz:
+      num_warmup_steps: 25
+      num_training_steps: 80
+      hp_init: 1.0
+      hp_end: 0.2
+    scheduler_z:
+      # between 0 and 1, saying given that a sample is not xz, how likely is it to be z.
+      num_warmup_steps: 25
+      num_training_steps: 80
+      hp_init: 0.7
+      hp_end: 0.9
 

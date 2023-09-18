@@ -368,13 +368,13 @@ class XZAutoencoder(LightningModule):
 
         
     def validation_step(self, batch, batch_idx):
-        output = self.compute_accuracy_measures(batch, stage='val')
-        return output
+        self.compute_accuracy_measures(batch, stage='val')
+        return 
     
 
     def test_step(self, batch, batch_idx):
-        output = self.compute_accuracy_measures(batch, stage='test')
-        return output
+        self.compute_accuracy_measures(batch, stage='test')
+        return 
     
     
     def configure_optimizers(self):

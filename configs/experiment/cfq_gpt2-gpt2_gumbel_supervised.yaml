@@ -62,12 +62,25 @@ model:
 
 
 datamodule:
-  # data_type_sampling_probability: [0.9, 0.05, 0.05] # [xz, x, z]
-  data_type_sampling_probability: [1., 0.0, 0.0] # [xz, x, z]
   dataset_parameters:
     supervision_ratio: [1., 0.0, 0.0] # [xz, x, z]
     batch_size: 32
     num_workers: 48
+
+
+callbacks:
+  supervision_scheduler:
+    scheduler_xz:
+      num_warmup_steps: 25
+      num_training_steps: 80
+      hp_init: 1.0
+      hp_end: 0.2
+    scheduler_z:
+      # between 0 and 1, saying given that a sample is not xz, how likely is it to be z.
+      num_warmup_steps: 25
+      num_training_steps: 80
+      hp_init: 0.7
+      hp_end: 0.9
 
 
 

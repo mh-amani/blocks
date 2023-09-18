@@ -20,7 +20,7 @@ track_gradients: Yes
 overfit_batch: 0
 
 trainer:
-  devices: [0] # 'auto', or numbers like 2, [0]
+  devices: [1] # 'auto', or numbers like 2, [0]
   accelerator: 'gpu' #cpu, tpu, (devices=4, accelerator="gpu", strategy="ddp"), (devices="auto", accelerator="auto")
 
 model:
@@ -38,7 +38,7 @@ model:
       supervised_seperated_x: 1.0
       supervised_seperated_z: 1.0
     
-    acc_grad_batch: 16
+    acc_grad_batch: 4
   
   modules:
     model_x_to_z: ${model.sequence_to_sequence_model.gpt2_gpt2}
@@ -62,13 +62,22 @@ model:
 
 
 datamodule:
-  # data_type_sampling_probability: [0.9, 0.05, 0.05] # [xz, x, z]
-  data_type_sampling_probability: [1., 0.0, 0.0] # [xz, x, z]
   dataset_parameters:
-    supervision_ratio: [1., 0.0, 0.0] # [xz, x, z]
+    # supervision_ratio: [1., 0.0, 0.0] # [xz, x, z]
     batch_size: 32
     num_workers: 48
 
 
-
-
+callbacks:
+  supervision_scheduler:
+    scheduler_xz:
+      num_warmup_steps: 25
+      num_training_steps: 80
+      hp_init: 1.0
+      hp_end: 0.2
+    scheduler_z:
+      # between 0 and 1, saying given that a sample is not xz, how likely is it to be z.
+      num_warmup_steps: 25
+      num_training_steps: 80
+      hp_init: 0.7
+      hp_end: 0.9

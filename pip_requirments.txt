@@ -18,3 +18,4 @@ tqdm==4.66.1
 transformers==4.32.0
 wandb==0.15.8
 pynini==2.1.5
+fairseq==0.12.2

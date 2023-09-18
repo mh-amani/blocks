@@ -3,7 +3,9 @@ _target_: src.datamodules.cogs.COGSDatamodule
 dataset_target_: src.datamodules.cogs.COGSDataset
 seed: 42
 tokenize_in_dataset: True
-data_type_sampling_probability: [0.9, 0.05, 0.05] # [xz, x, z]
+data_type_sampling_probability: 
+  - ${callbacks.supervision_scheduler.scheduler_xz.hp_init}
+  - ${callbacks.supervision_scheduler.scheduler_z.hp_init} #[xz, p(z|not zx)]
 
 data_dir: "data/cogs/"
 
