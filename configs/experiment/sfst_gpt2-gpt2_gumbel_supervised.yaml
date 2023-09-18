@@ -12,7 +12,7 @@ defaults:
 # this allows you to overwrite only specified parameters
 
 # name of the run determines folder name in logs
-name: "SFST_symae"
+name: "sfst_symae"
 run_name: "supervised-gpt2_gpt2-gumbel" 
 
 track_gradients: Yes
@@ -34,7 +34,7 @@ model:
       supervised_seperated_x: 1.0
       supervised_seperated_z: 1.0
     
-    acc_grad_batch: 4
+    acc_grad_batch: 1
   
   modules:
     model_x_to_z: ${model.sequence_to_sequence_model.gpt2_gpt2}
@@ -62,7 +62,6 @@ model:
 
 
 datamodule:
-  data_type_sampling_probability: [0.8, 0.1, 0.1] # [xz, x, z]
   dataset_parameters:
     supervision_ratio: [0.05, 0.45, 0.55] # [xz, x, z]
     batch_size: 32
@@ -73,10 +72,22 @@ datamodule:
     maximum_input_alphabet_delta: 1
     p_empty_emission: 0.3
     dataset_size: 20000
-    node_size: 100
+    node_size: 20
     max_length: 50
     output_alphabet_size: 10
 
 
 
-
+callbacks:
+  supervision_scheduler:
+    scheduler_xz:
+      num_warmup_steps: 25
+      num_training_steps: 80
+      hp_init: 1.0
+      hp_end: 0.2
+    scheduler_z:
+      # between 0 and 1, saying given that a sample is not xz, how likely is it to be z.
+      num_warmup_steps: 25
+      num_training_steps: 80
+      hp_init: 0.7
+      hp_end: 0.9

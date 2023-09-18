@@ -140,7 +140,6 @@ class AbstractPLDataModule(LightningDataModule, ABC):
         self.data_test: Optional[Dataset] = None
 
         self.data_type_sampling_probability = torch.tensor(kwargs["data_type_sampling_probability"]).float()
-        self.data_type_sampling_probability = self.data_type_sampling_probability / self.data_type_sampling_probability.sum()
 
     def set_collate_fn(self, collate_fn):
         self.collate_fn = collate_fn

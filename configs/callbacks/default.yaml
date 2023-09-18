@@ -21,6 +21,37 @@ early_stopping:
   patience: 200 # how many validation epochs (note that this might differ from training epochs) of not improving until training stops
   min_delta: 0 # minimum change in the monitored metric needed to qualify as an improvement
 
+supervision_scheduler:
+  _target_: src.callbacks.supervision_probability_callback.SupervisionProbabilitySchedulerCallback
+  scheduler_xz:
+    _target_: src.schedulers.linear_scheduler.LinearScheduler
+    num_warmup_steps: 25
+    num_training_steps: 80
+    hp_init: 1.0
+    hp_end: 0.2
+    power: 1.0
+  scheduler_z:
+    # between 0 and 1, saying given that a sample is not xz, how likely is it to be z.
+    _target_: src.schedulers.linear_scheduler.LinearScheduler
+    num_warmup_steps: 25
+    num_training_steps: 80
+    hp_init: 0.9
+    hp_end: 0.6
+    power: 1.0
+
+
+# z_supervised_scheduler:
+#   _target_: src.callbacks.scheduler_callback.SchedulerCallback
+#   hyperparameter_location: trainer.datamodule.train_sampler.p_sup
+#   hyperparameter_location_pl: model_params.prob_z_sup
+#   scheduler:
+#     _target_: src.schedulers.linear_scheduler.LinearScheduler
+#     num_warmup_steps: 25
+#     num_training_steps: 80
+#     hp_init: 1.0
+#     hp_end: 1.0
+#     power: 1.0
+
 # probability_logger_wandb:
 #   _target_: src.callbacks.wandb_output_logger.ProbabilityLogger
 
@@ -36,14 +67,3 @@ early_stopping:
 #     hp_end: 1.5
 #     power: 1.0
 
-# z_supervised_scheduler:
-#   _target_: src.callbacks.scheduler_callback.SchedulerCallback
-#   hyperparameter_location: trainer.datamodule.train_sampler.p_sup
-#   hyperparameter_location_pl: model_params.prob_z_sup
-#   scheduler:
-#     _target_: src.schedulers.linear_scheduler.LinearScheduler
-#     num_warmup_steps: 25
-#     num_training_steps: 80
-#     hp_init: 1.0
-#     hp_end: 1.0
-#     power: 1.0

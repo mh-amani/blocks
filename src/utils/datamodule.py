@@ -47,7 +47,7 @@ class randomSupervisionSampler(Sampler):
             coin_toss = random.random()
             if coin_toss <= self.data_type_sampling_probability[0] and self.sup_len_x>0:
                 yield from torch.randint(high=self.sup_len_x, size=(self.batch_size,), dtype=torch.int64, generator=generator).tolist()
-            elif coin_toss <= (self.data_type_sampling_probability[0] + self.data_type_sampling_probability[1]) and self.sup_len_z>0:
+            elif coin_toss <= (self.data_type_sampling_probability[0] + (1 - self.data_type_sampling_probability[0]) * (1 - self.data_type_sampling_probability[1])) and self.sup_len_z>0:
                 yield from torch.randint(low=self.sup_len_x, high=self.sup_len_z+ self.sup_len_x, size=(self.batch_size,), dtype=torch.int64, generator=generator).tolist()
             elif self.sup_len_z<n:
                 yield from torch.randint(low=self.sup_len_x + self.sup_len_z, high=n, size=(self.batch_size,), dtype=torch.int64, generator=generator).tolist()
@@ -57,7 +57,7 @@ class randomSupervisionSampler(Sampler):
         coin_toss = random.random()
         if coin_toss <= self.data_type_sampling_probability[0] and self.sup_len_x>0:
             yield from torch.randint(high=self.sup_len_x, size=(self.num_samples % self.batch_size,), dtype=torch.int64, generator=generator).tolist()
-        elif coin_toss <= (self.data_type_sampling_probability[0] + self.data_type_sampling_probability[1]) and self.sup_len_z>0:
+        elif coin_toss <= (self.data_type_sampling_probability[0] + (1 - self.data_type_sampling_probability[0]) * (1 - self.data_type_sampling_probability[1])) and self.sup_len_z>0:
             yield from torch.randint(low=self.sup_len_x, high=self.sup_len_z + self.sup_len_x, size=(self.num_samples % self.batch_size,), dtype=torch.int64, generator=generator).tolist()
         elif self.sup_len_z<n:
             yield from torch.randint(low=self.sup_len_z + self.sup_len_x, high=n, size=(self.num_samples % self.batch_size,), dtype=torch.int64, generator=generator).tolist()
