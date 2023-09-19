@@ -143,6 +143,9 @@ slurm_out/
 # check points
 checkpoints/
 
+# logs
+logs/
+
 config_tree.txt
 enviroment.yml
 best_ckpt_path.txt
