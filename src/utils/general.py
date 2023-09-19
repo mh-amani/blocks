@@ -2,7 +2,6 @@ import logging
 import os
 import warnings
 from typing import List, Sequence
-import torch
 
 import pytorch_lightning as pl
 from pytorch_lightning.loggers.logger import Logger

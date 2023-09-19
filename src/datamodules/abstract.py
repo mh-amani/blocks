@@ -29,7 +29,6 @@ class AbstractDataset(Dataset):
         self.random_state = np.random.RandomState(self.dataset_parameters["seed"])
         assert len(self.dataset_parameters["supervision_ratio"]) == 2, f"supervision_ratio should only contain 2 probabilities ([xz, p(z|not zx)]), got {len(self.dataset_parameters['supervision_ratio'])}"
         self.supervision_ratio = torch.tensor(self.dataset_parameters["supervision_ratio"]).float()
-        self.supervision_ratio = self.supervision_ratio / self.supervision_ratio.sum()
 
     def __len__(self):
         raise NotImplementedError()
@@ -59,13 +58,13 @@ class AbstractDataset(Dataset):
         """
         Add a supervision label to each data point in the train dataset
         """
-        AbstractDataset.sup_len_x = int(self.supervision_ratio[0] * train_length)
-        AbstractDataset.sup_len_z = int(self.supervision_ratio[1] * train_length)
+        AbstractDataset.sup_len_xz = int(self.supervision_ratio[0] * train_length)
+        AbstractDataset.sup_len_x = int( (1 - self.supervision_ratio[0]) * (1 - self.supervision_ratio[1]) * train_length)
         # data_type should be [X_available, Z_available], where 1 means available and 0 means unavailable
         AbstractDataset.data_type = {}
         AbstractDataset.data_type['train'] = np.ones((len(self.train_dataset), 2), dtype=np.bool_)
-        AbstractDataset.data_type['train'][AbstractDataset.sup_len_x:AbstractDataset.sup_len_x + AbstractDataset.sup_len_z] = np.array([1, 0], dtype=np.bool_)
-        AbstractDataset.data_type['train'][AbstractDataset.sup_len_x + AbstractDataset.sup_len_z:] = np.array([0, 1], dtype=np.bool_)
+        AbstractDataset.data_type['train'][AbstractDataset.sup_len_xz:AbstractDataset.sup_len_xz + AbstractDataset.sup_len_x] = np.array([1, 0], dtype=np.bool_)
+        AbstractDataset.data_type['train'][AbstractDataset.sup_len_xz + AbstractDataset.sup_len_x:] = np.array([0, 1], dtype=np.bool_)
 
         AbstractDataset.data_type['val'] = np.ones((len(self.val_dataset),2), dtype=np.bool_)
         AbstractDataset.data_type['test'] = np.ones((len(self.test_dataset),2), dtype=np.bool_)

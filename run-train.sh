@@ -22,15 +22,18 @@ export LD_PRELOAD=/home/mila/s/sayed.mansouri-tehrani/blocks/hack.so
 # for runs more than a day, use: 1-11:59:00 (day-hour)
 # lists can be passed both as a string or as a list. Example: supervision_ratio=\[1.,0.0,0.0\] or 'supervision_ratio=[1.,0.0,0.0]'
 
+# --------------------------------------------------------------------------------------------------- #
+# --------------------------------------------------------------------------------------------------- #
+# ----------------------------------------------- SCAN ---------------------------------------------- #
+# python run_train.py +experiment=scan_gpt2-gpt2_gumbel_supervised.yaml trainer.accelerator='gpu' trainer.devices=1 callbacks.supervision_scheduler.scheduler_xz.hp_init=1.0 callbacks.supervision_scheduler.scheduler_xz.hp_end=0.8 callbacks.supervision_scheduler.scheduler_z.hp_init=1.0 callbacks.supervision_scheduler.scheduler_z.hp_end=0.5 logger.wandb.tags=["mixed-training"]
 
 # --------------------------------------------------------------------------------------------------- #
 # --------------------------------------------------------------------------------------------------- #
 # --------------------------------------------- PCFG Set -------------------------------------------- #
 
 # -------------------------- Mixed Training -------------------------- #
-# data_type_sampling_probability=[0.8, 0.10, 0.10], supervision_ratio: [0.05, 0.45, 0.55]
 # systematicitiy
-python run_train.py +experiment=pcfgset_gpt2-gpt2_gumbel_supervised datamodule/experiment="systematicitiy" trainer.accelerator='gpu' trainer.devices=1 datamodule.data_type_sampling_probability="[0.8, 0.20]" datamodule.dataset_parameters.supervision_ratio="[0.05, 0.95]" logger.wandb.tags=["mixed-training"]
+python run_train.py +experiment=pcfgset_gpt2-gpt2_gumbel_supervised ++datamodule/experiment="systematicitiy" trainer.accelerator='gpu' trainer.devices=1 callbacks.supervision_scheduler.scheduler_xz.hp_init=1.0 callbacks.supervision_scheduler.scheduler_xz.hp_end=0.8 callbacks.supervision_scheduler.scheduler_z.hp_init=1.0 callbacks.supervision_scheduler.scheduler_z.hp_end=0.5 logger.wandb.tags=["mixed-training"]
 
 # substitutivity
 # python run_train.py +experiment=pcfgset_gpt2-gpt2_gumbel_supervised ++datamodule/experiment="substitutivity" trainer.accelerator='gpu' trainer.devices=1 +experiment.datamodule.data_type_sampling_probability="[0.8, 0.10, 0.10]" +experiment.datamodule.dataset_parameters.supervision_ratio="[0.05, 0.45, 0.55]" logger.wandb.tags=["mixed-training"]

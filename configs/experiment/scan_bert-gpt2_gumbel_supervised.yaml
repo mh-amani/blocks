@@ -41,6 +41,7 @@ model:
 
 
 datamodule:
+  supervision_ratio: [0.05, 0.9] # [r(xz), r(z|not xz)]
   dataset_parameters:
     sup_ratio: 1.0
     batch_size: 256
