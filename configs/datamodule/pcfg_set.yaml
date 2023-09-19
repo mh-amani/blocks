@@ -9,7 +9,8 @@ data_type_sampling_probability:
 
 experiment: "systematicity" # "systematicity", "substitutivity", "productivity", "localism", "overgeneralization", "pcfgset"
 
-path_header: "/home/mila/s/sayed.mansouri-tehrani/blocks" # "./"
+# path_header: "/home/mila/s/sayed.mansouri-tehrani/blocks" # "./"
+path_header: ${work_dir}
 
 experiment_paths:
   systematicity:

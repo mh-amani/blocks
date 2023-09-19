@@ -48,10 +48,10 @@ model:
   lr_scheduler:
     mode: "min"
     factor: 0.8
-    patience: 1
+    patience: 5
     threshold: 0.01
     threshold_mode: "abs"
-    cooldown: 1
+    cooldown: 5
     min_lr: 1e-6
     eps: 1e-8
     verbose: True
@@ -59,22 +59,22 @@ model:
 
 datamodule:
   dataset_parameters:
-    supervision_ratio: [0.05, 0.45, 0.5] # [xz, x, z]
+    supervision_ratio: [0.05, 0.9] # [r(xz), r(z|not xz)]
     batch_size: 32
     num_workers: 48
 
 callbacks:
   supervision_scheduler:
     scheduler_xz:
-      num_warmup_steps: 1
-      num_training_steps: 80
+      num_warmup_steps: 20
+      num_training_steps: 100
       hp_init: 1.0
       hp_end: 0.2
     scheduler_z:
       # between 0 and 1, saying given that a sample is not xz, how likely is it to be z.
-      num_warmup_steps: 1
+      num_warmup_steps: 30
       num_training_steps: 80
-      hp_init: 0.7
+      hp_init: 0.5
       hp_end: 0.9
 
 

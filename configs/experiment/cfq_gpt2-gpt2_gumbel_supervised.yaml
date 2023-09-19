@@ -63,7 +63,7 @@ model:
 
 datamodule:
   dataset_parameters:
-    supervision_ratio: [1., 0.0, 0.0] # [xz, x, z]
+    supervision_ratio: [0.05, 0.9] # [r(xz), r(z|not xz)]
     batch_size: 32
     num_workers: 48
 
