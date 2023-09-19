@@ -27,11 +27,11 @@ class randomSupervisionSampler(Sampler):
         self.generator = generator
         self.data_source_len = len(self.data_source)
 
-        # if self.generator is None:
-        #     seed = int(torch.empty((), dtype=torch.int64).random_().item())
-        #     generator = torch.Generator()
-        #     generator.manual_seed(seed)
-        #     self.generator = generator
+        if self.generator is None:
+            seed = int(torch.empty((), dtype=torch.int64).random_().item())
+            generator = torch.Generator()
+            generator.manual_seed(seed)
+            self.generator = generator
         # else:
         #     generator = self.generator
 
@@ -45,7 +45,7 @@ class randomSupervisionSampler(Sampler):
 
 
     def __iter__(self):
-        torch.manual_seed(self.data_source.seed)
+        # torch.manual_seed(self.data_source.seed)
         # should I move it to the init?
         for _ in range(self.num_samples // self.batch_size):
             yield from self.sample_some_data(self.batch_size)
@@ -53,7 +53,7 @@ class randomSupervisionSampler(Sampler):
         yield from self.sample_some_data(self.num_samples % self.batch_size)
 
     def sample_some_data(self, num_samples):
-        coin_toss = torch.rand(size=(1,)).item()
+        coin_toss = torch.rand(size=(1,), generator=self.generator).item()
         if coin_toss <= self.data_type_sampling_probability[0] and self.sup_len_xz>0:
             yield from torch.randint(high=self.sup_len_xz, size=(num_samples,), dtype=torch.int64, generator=self.generator).tolist()
         elif coin_toss <= (self.data_type_sampling_probability[0] + (1 - self.data_type_sampling_probability[0]) * (1 - self.data_type_sampling_probability[1])) and self.sup_len_x>0:
