@@ -27,7 +27,7 @@ class AbstractDataset(Dataset):
         self.dataset_parameters = dataset_parameters
         self.params = kwargs
         self.random_state = np.random.RandomState(self.dataset_parameters["seed"])
-
+        assert len(self.dataset_parameters["supervision_ratio"]) == 2, f"supervision_ratio should only contain 2 probabilities ([xz, p(z|not zx)]), got {len(self.dataset_parameters['supervision_ratio'])}"
         self.supervision_ratio = torch.tensor(self.dataset_parameters["supervision_ratio"]).float()
         self.supervision_ratio = self.supervision_ratio / self.supervision_ratio.sum()
 
@@ -138,7 +138,7 @@ class AbstractPLDataModule(LightningDataModule, ABC):
         self.data_train: Optional[Dataset] = None
         self.data_val: Optional[Dataset] = None
         self.data_test: Optional[Dataset] = None
-
+        assert len(kwargs["data_type_sampling_probability"]) == 2, f"data_type_sampling_probability should only contain 2 probabilities ([xz, p(z|not zx)]), got {len(kwargs['data_type_sampling_probability'])}"
         self.data_type_sampling_probability = torch.tensor(kwargs["data_type_sampling_probability"]).float()
 
     def set_collate_fn(self, collate_fn):
