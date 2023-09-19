@@ -39,7 +39,7 @@ class SupervisionProbabilitySchedulerCallback(Callback):
         new_hyperparameter_value = torch.tensor([prob_xz, prob_z])
         self.sampler.data_type_sampling_probability = new_hyperparameter_value
         
-        pl_module.log_dict({'prob_xz': prob_xz, 'prob_z':prob_z,  'global_step': pl_module.global_step})
+        pl_module.log_dict({'prob_xz': prob_xz, 'prob_z':prob_z,  'global_step': float(pl_module.global_step)})
         # wandb.log({self.hyperparameter_name: new_hyperparameter_value, 'global_step': pl_module.global_step})
         
 # trainer.train_dataloader.sampler.p_sup

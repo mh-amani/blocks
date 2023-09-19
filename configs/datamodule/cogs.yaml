@@ -7,7 +7,7 @@ data_type_sampling_probability:
   - ${callbacks.supervision_scheduler.scheduler_xz.hp_init}
   - ${callbacks.supervision_scheduler.scheduler_z.hp_init} #[xz, p(z|not zx)]
 
-data_dir: "data/cogs/"
+path_header: "~/blocks/data/cogs/" # "./data/cogs/"
 
 dataset_parameters:
   seed: ${seed}
@@ -18,15 +18,15 @@ dataset_parameters:
   overfit_batch: ${overfit_batch}
   tokenize_in_dataset: ${datamodule.tokenize_in_dataset}
   train:
-    tsv_path: ${datamodule.data_dir}train.tsv
+    tsv_path: ${datamodule.path_header}train.tsv
   val:
-    tsv_path: ${datamodule.data_dir}dev.tsv
+    tsv_path: ${datamodule.path_header}dev.tsv
   test:
-    tsv_path: ${datamodule.data_dir}test.tsv
+    tsv_path: ${datamodule.path_header}test.tsv
   gen:
-    tsv_path: ${datamodule.data_dir}gen.tsv
+    tsv_path: ${datamodule.path_header}gen.tsv
   train_100:
-    tsv_path: ${datamodule.data_dir}train_100.tsv
+    tsv_path: ${datamodule.path_header}train_100.tsv
   
 
 datasets:

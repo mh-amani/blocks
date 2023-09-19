@@ -9,35 +9,37 @@ data_type_sampling_probability:
 
 experiment: "systematicity" # "systematicity", "substitutivity", "productivity", "localism", "overgeneralization", "pcfgset"
 
+path_header: "/home/mila/s/sayed.mansouri-tehrani/blocks" # "./"
+
 experiment_paths:
   systematicity:
     train:
-      src_path: "data/pcfgset/systematicity/train.src"
-      tgt_path: "data/pcfgset/systematicity/train.tgt"
+      src_path: "${datamodule.path_header}/data/pcfgset/systematicity/train.src"
+      tgt_path: "${datamodule.path_header}/data/pcfgset/systematicity/train.tgt"
     test:
-      src_path: "data/pcfgset/systematicity/test.src"
-      tgt_path: "data/pcfgset/systematicity/test.tgt"
+      src_path: "${datamodule.path_header}/data/pcfgset/systematicity/test.src"
+      tgt_path: "${datamodule.path_header}/data/pcfgset/systematicity/test.tgt"
   productivity:
     train:
-      src_path: "data/pcfgset/productivity/train.src"
-      tgt_path: "data/pcfgset/productivity/train.tgt"
+      src_path: "${datamodule.path_header}/data/pcfgset/productivity/train.src"
+      tgt_path: "${datamodule.path_header}/data/pcfgset/productivity/train.tgt"
     test:
-      src_path: "data/pcfgset/productivity/test.src"
-      tgt_path: "data/pcfgset/productivity/test.tgt"
+      src_path: "${datamodule.path_header}/data/pcfgset/productivity/test.src"
+      tgt_path: "${datamodule.path_header}/data/pcfgset/productivity/test.tgt"
   pcfgset:
     train:
-      src_path: "data/pcfgset/pcfgset/train.src"
-      tgt_path: "data/pcfgset/pcfgset/train.tgt"
+      src_path: "${datamodule.path_header}/data/pcfgset/pcfgset/train.src"
+      tgt_path: "${datamodule.path_header}/data/pcfgset/pcfgset/train.tgt"
     test:
-      src_path: "data/pcfgset/pcfgset/test.src"
-      tgt_path: "data/pcfgset/pcfgset/test.tgt"
+      src_path: "${datamodule.path_header}/data/pcfgset/pcfgset/test.src"
+      tgt_path: "${datamodule.path_header}/data/pcfgset/pcfgset/test.tgt"
   substitutivity:
     train:
-      src_path: "data/pcfgset/substitutivity/equally_distributed/train.src"
-      tgt_path: "data/pcfgset/substitutivity/equally_distributed/train.tgt"
+      src_path: "${datamodule.path_header}/data/pcfgset/substitutivity/equally_distributed/train.src"
+      tgt_path: "${datamodule.path_header}/data/pcfgset/substitutivity/equally_distributed/train.tgt"
     test:
-      src_path: "data/pcfgset/substitutivity/equally_distributed/test.src"
-      tgt_path: "data/pcfgset/substitutivity/equally_distributed/test.tgt"
+      src_path: "${datamodule.path_header}/data/pcfgset/substitutivity/equally_distributed/test.src"
+      tgt_path: "${datamodule.path_header}/data/pcfgset/substitutivity/equally_distributed/test.tgt"
 
 
 
