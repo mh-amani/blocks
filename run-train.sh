@@ -30,7 +30,7 @@ export LD_PRELOAD=/home/mila/s/sayed.mansouri-tehrani/blocks/hack.so
 # -------------------------- Mixed Training -------------------------- #
 # data_type_sampling_probability=[0.8, 0.10, 0.10], supervision_ratio: [0.05, 0.45, 0.55]
 # systematicitiy
-# python run_train.py +experiment=pcfgset_gpt2-gpt2_gumbel_supervised ++datamodule/experiment="systematicitiy" trainer.accelerator='gpu' trainer.devices=1 +experiment.datamodule.data_type_sampling_probability="[0.8, 0.10, 0.10]" +experiment.datamodule.dataset_parameters.supervision_ratio="[0.05, 0.45, 0.55]" logger.wandb.tags=["mixed-training"]
+python run_train.py +experiment=pcfgset_gpt2-gpt2_gumbel_supervised datamodule/experiment="systematicitiy" trainer.accelerator='gpu' trainer.devices=1 datamodule.data_type_sampling_probability="[0.8, 0.20]" datamodule.dataset_parameters.supervision_ratio="[0.05, 0.95]" logger.wandb.tags=["mixed-training"]
 
 # substitutivity
 # python run_train.py +experiment=pcfgset_gpt2-gpt2_gumbel_supervised ++datamodule/experiment="substitutivity" trainer.accelerator='gpu' trainer.devices=1 +experiment.datamodule.data_type_sampling_probability="[0.8, 0.10, 0.10]" +experiment.datamodule.dataset_parameters.supervision_ratio="[0.05, 0.45, 0.55]" logger.wandb.tags=["mixed-training"]
@@ -79,7 +79,7 @@ export LD_PRELOAD=/home/mila/s/sayed.mansouri-tehrani/blocks/hack.so
 # -------------------------- Mixed Training -------------------------- #
 # data_type_sampling_probability=[0.8, 0.10, 0.10], supervision_ratio: [0.05, 0.45, 0.55]
 # use BPE tokenizer
-python run_train.py +experiment=cogs_gpt2-gpt2_gumbel_supervised trainer.accelerator='gpu' trainer.devices=1 datamodule.data_type_sampling_probability="[0.8, 0.10, 0.10]" datamodule.dataset_parameters.supervision_ratio="[0.05, 0.45, 0.55]" logger.wandb.tags=["cogs","mixed-training"]
+python run_train.py +experiment=cogs_gpt2-gpt2_gumbel_supervised trainer.accelerator='gpu' trainer.devices=1 datamodule.data_type_sampling_probability="[0.8, 0.2]" datamodule.dataset_parameters.supervision_ratio="[0.01, 0.99]" logger.wandb.tags=["cogs","mixed-training"]
 
 # --------------------------------------------------------------------------------------------------- #
 # --------------------------------------------------------------------------------------------------- #
