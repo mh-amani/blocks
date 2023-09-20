@@ -25,7 +25,9 @@ export LD_PRELOAD=/home/mila/s/sayed.mansouri-tehrani/blocks/hack.so
 # --------------------------------------------------------------------------------------------------- #
 # --------------------------------------------------------------------------------------------------- #
 # ----------------------------------------------- SCAN ---------------------------------------------- #
-# python run_train.py +experiment=scan_gpt2-gpt2_gumbel_supervised.yaml trainer.accelerator='gpu' trainer.devices=1 callbacks.supervision_scheduler.scheduler_xz.hp_init=1.0 callbacks.supervision_scheduler.scheduler_xz.hp_end=0.8 callbacks.supervision_scheduler.scheduler_z.hp_init=1.0 callbacks.supervision_scheduler.scheduler_z.hp_end=0.5 logger.wandb.tags=["mixed-training"]
+# supervised:
+# python run_train.py +experiment=scan_gpt2-gpt2_gumbel_supervised.yaml run_name="supervised-only-0.02-gumbel" trainer.devices=[1] trainer.min_epochs=100 datamodule.dataset_parameters.supervision_ratio="[0.02, 0.9]" callbacks.supervision_scheduler.scheduler_xz.hp_init=1.0 callbacks.supervision_scheduler.scheduler_xz.hp_end=1.0 callbacks.supervision_scheduler.scheduler_z.hp_init=1.0 callbacks.supervision_scheduler.scheduler_z.hp_end=1.0 logger.wandb.tags=["supervised-training"]
+# weakly supervised:
 
 # --------------------------------------------------------------------------------------------------- #
 # --------------------------------------------------------------------------------------------------- #
