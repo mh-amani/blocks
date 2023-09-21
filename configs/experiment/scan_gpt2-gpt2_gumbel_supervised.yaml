@@ -34,7 +34,7 @@ model:
       supervised_seperated_x: 1.0
       supervised_seperated_z: 1.0
     
-    acc_grad_batch: 16
+    acc_grad_batch: 1
   
   modules:
     model_x_to_z: ${model.sequence_to_sequence_model.gpt2_gpt2}
@@ -60,7 +60,7 @@ model:
 datamodule:
   dataset_parameters:
     supervision_ratio: [0.05, 0.9] # [r(xz), r(z|not xz)]
-    batch_size: 32
+    batch_size: 512
     num_workers: 48
 
 callbacks:

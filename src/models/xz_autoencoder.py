@@ -15,10 +15,10 @@ class XZAutoencoder(LightningModule):
     def __init__(self, **kwargs) -> None:
         super().__init__()
         
-        self.save_hyperparameters(ignore=["data_module",])
+        self.save_hyperparameters(ignore=["datamodule",])
                 
         # if loading a pretrained model, but need to change some of the parameters
-        if self.hparams.get('checkpoint_path') and self.hparams.get('substitute_config'):
+        if self.hparams.get('substitute_config'):
             self._update_params(self.hparams, self.hparams.substitute_config)
         
         self.special_tokens = self.hparams.special_tokens 
@@ -63,12 +63,20 @@ class XZAutoencoder(LightningModule):
         assert self.acc_grad_batch > 0, "acc_grad_batch must be greater than 0"
 
 
-    def setup(self, stage: str) -> None:
+        # collate_fn
+        train_dataset = kwargs['datamodule'].data_train
+        self.collator = hydra.utils.instantiate(self.hparams.collator, train_dataset, 
+                                                special_tokens=self.special_tokens, _recursive_ = False)
+        
+        # discretizers
         disc_conf_x, disc_conf_z = self.discretizer_dimensions()
         # discrete bottlenecks
         self.disc_x = hydra.utils.instantiate(self.hparams.modules.disc_x, disc_conf_x, _recursive_ = False)
         self.disc_z = hydra.utils.instantiate(self.hparams.modules.disc_z, disc_conf_z, _recursive_ = False)
+        
+        
 
+    # def setup(self, stage: str) -> None:
 
     def one_step_sequential_forward(self, model, discretizer, input_embeds, input_attention_mask, 
                                     output_embeds, output_attention_mask=None, past_key_values=None):
@@ -445,11 +453,10 @@ class XZAutoencoder(LightningModule):
         # for when you load pretrained model and want to update the params, 
         for k, v in new_params.items():
             if isinstance(v, collections.abc.Mapping):
-                params[k] = self.update_params(params.get(k, {}), v)
+                params[k] = self._update_params(params.get(k, {}), v)
             else:
                 params[k] = v
-        return params
-    
+        return params    
     
     def _write_testing_output(self, step_summary):
         output_path = f"testing_output_{self.global_rank}.jsonl"
@@ -474,9 +481,3 @@ class XZAutoencoder(LightningModule):
             self.disc_z_vocab_size = self.hparams.model_params.disc_z_vocab_size
         return( {'input_dim': self.x_in_dim, 'output_dim': self.x_out_dim, 'vocab_size': self.disc_x_vocab_size}, 
                 {'input_dim': self.z_in_dim, 'output_dim': self.z_out_dim, 'vocab_size': self.disc_z_vocab_size})
-
-
-    def setup_collate_fn(self, datamodule):
-        train_dataset = datamodule.data_train
-        self.collator = hydra.utils.instantiate(self.hparams.collator, train_dataset, 
-                                                special_tokens=self.special_tokens, _recursive_ = False)
