@@ -350,13 +350,13 @@ class XZAutoencoder(LightningModule):
         ids = ids[:, 1:]
         hat_ids = hat_ids[:, :-1]
 
-        #Completeness test
-        value = self.completeness[variable](hat_ids, ids)
-        self.log(f'{stage}/{type}/completeness/{variable}', value, batch_size=self.batch_size)
+        # #Completeness test
+        # value = self.completeness[variable](hat_ids, ids)
+        # self.log(f'{stage}/{type}/completeness/{variable}', value, batch_size=self.batch_size)
         
-        #Homogeneity test
-        value = self.homogeneity[variable](hat_ids, ids)
-        self.log(f'{stage}/{type}/homogeneity/{variable}', value, batch_size=self.batch_size)
+        # #Homogeneity test
+        # value = self.homogeneity[variable](hat_ids, ids)
+        # self.log(f'{stage}/{type}/homogeneity/{variable}', value, batch_size=self.batch_size)
 
         #Accuracy test
         value = self.accuracy[variable](hat_ids.reshape(-1), ids.reshape(-1))
@@ -366,9 +366,9 @@ class XZAutoencoder(LightningModule):
         value = self.accuracy_sentence[variable](hat_ids, ids)
         self.log(f'{stage}/{type}/accuracy_sentence/{variable}', value, batch_size=self.batch_size)
 
-        #Token homogeneity test
-        value = self.token_homogeneity[variable](hat_ids, ids)
-        self.log(f'{stage}/{type}/token_homogeneity/{variable}', value, batch_size=self.batch_size)
+        # #Token homogeneity test
+        # value = self.token_homogeneity[variable](hat_ids, ids)
+        # self.log(f'{stage}/{type}/token_homogeneity/{variable}', value, batch_size=self.batch_size)
 
         # if self.hparams.get('write_testing_output', True):
         #     step_summary = {'stage': stage, 'type': type, 'x_ids': x_ids, 'x_hat_ids': x_hat_ids, 'z_ids': z_ids, 'z_hat_ids': z_hat_ids}

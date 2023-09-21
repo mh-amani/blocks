@@ -28,13 +28,13 @@ callbacks:
       num_warmup_steps: 1
       num_training_steps: 100
       hp_init: 1.0
-      hp_end: 0.2
+      hp_end: 0.7
     scheduler_z:
       # between 0 and 1, saying given that a sample is not xz, how likely is it to be z.
       num_warmup_steps: 30
       num_training_steps: 100
       hp_init: 1.0
-      hp_end: 0.9
+      hp_end: 0.7
 
 
 model:
@@ -51,7 +51,7 @@ model:
       acc_grad_batch: 16
 
     optimizer:
-      lr: 0.0005
+      lr: 0.001
 
     lr_scheduler:
       mode: "min"

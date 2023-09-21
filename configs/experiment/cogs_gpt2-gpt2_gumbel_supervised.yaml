@@ -38,7 +38,7 @@ model:
       supervised_seperated_x: 1.0
       supervised_seperated_z: 1.0
     
-    acc_grad_batch: 4
+    acc_grad_batch: 1
   
   modules:
     model_x_to_z: ${model.sequence_to_sequence_model.gpt2_gpt2}
@@ -74,10 +74,10 @@ callbacks:
       num_warmup_steps: 25
       num_training_steps: 80
       hp_init: 1.0
-      hp_end: 0.2
+      hp_end: 1.0
     scheduler_z:
       # between 0 and 1, saying given that a sample is not xz, how likely is it to be z.
       num_warmup_steps: 25
       num_training_steps: 80
-      hp_init: 0.7
+      hp_init: 1.0
       hp_end: 0.9
