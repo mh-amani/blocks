@@ -27,8 +27,9 @@ export LD_PRELOAD=/home/mila/s/sayed.mansouri-tehrani/blocks/hack.so
 # ----------------------------------------------- SCAN ---------------------------------------------- #
 # supervised:
 # python run_train.py +experiment=scan_gpt2-gpt2_gumbel_supervised.yaml run_name="supervised-only-0.02-gumbel" trainer.devices=[0] trainer.min_epochs=100 datamodule.dataset_parameters.batch_size=1024 datamodule.dataset_parameters.supervision_ratio="[0.02, 0.9]" callbacks.supervision_scheduler.scheduler_xz.hp_init=1.0 callbacks.supervision_scheduler.scheduler_xz.hp_end=1.0 callbacks.supervision_scheduler.scheduler_z.hp_init=1.0 callbacks.supervision_scheduler.scheduler_z.hp_end=1.0 logger.wandb.tags=["supervised-training"]
+
 # weakly supervised:
-# python run_train.py +experiment=scan_pretrained_weaksup.yaml run_name="supervised-curriculum-0.02-gumbel" trainer.devices=[0] trainer.min_epochs=100 datamodule.dataset_parameters.supervision_ratio="[0.02, 0.9]" callbacks.supervision_scheduler.scheduler_xz.hp_init=1.0 callbacks.supervision_scheduler.scheduler_xz.hp_end=0.5 callbacks.supervision_scheduler.scheduler_z.hp_init=1.0 callbacks.supervision_scheduler.scheduler_z.hp_end=9.0 logger.wandb.tags=["weakly-supervised"]
+# python run_train.py +experiment=scan_pretrained_weaksup.yaml run_name="supervised-curriculum-0.02-gumbel" trainer.devices=[0] model.substitute_config.optimizer.lr=0.002 model.substitute_config.model_params.acc_grad_batch=1 datamodule.dataset_parameters.batch_size=64 datamodule.dataset_parameters.supervision_ratio="[0.02, 0.9]" callbacks.supervision_scheduler.scheduler_xz.hp_init=1.0 callbacks.supervision_scheduler.scheduler_xz.hp_end=0.7 callbacks.supervision_scheduler.scheduler_z.hp_init=1.0 callbacks.supervision_scheduler.scheduler_z.hp_end=0.7 logger.wandb.tags=["weakly-supervised"]
 
 # --------------------------------------------------------------------------------------------------- #
 # --------------------------------------------------------------------------------------------------- #
@@ -36,7 +37,7 @@ export LD_PRELOAD=/home/mila/s/sayed.mansouri-tehrani/blocks/hack.so
 
 # -------------------------- Mixed Training -------------------------- #
 # systematicitiy
-python run_train.py +experiment=pcfgset_gpt2-gpt2_gumbel_supervised ++datamodule/experiment="systematicitiy" trainer.accelerator='gpu' trainer.devices=1 callbacks.supervision_scheduler.scheduler_xz.hp_init=1.0 callbacks.supervision_scheduler.scheduler_xz.hp_end=0.8 callbacks.supervision_scheduler.scheduler_z.hp_init=1.0 callbacks.supervision_scheduler.scheduler_z.hp_end=0.5 logger.wandb.tags=["mixed-training"]
+python run_train.py +experiment=pcfgset_gpt2-gpt2_gumbel_supervised +datamodule/experiment="systematicitiy" trainer.accelerator='gpu' trainer.devices=1 callbacks.supervision_scheduler.scheduler_xz.hp_init=1.0 callbacks.supervision_scheduler.scheduler_xz.hp_end=1.0 callbacks.supervision_scheduler.scheduler_z.hp_init=1.0 callbacks.supervision_scheduler.scheduler_z.hp_end=1.0 logger.wandb.tags=["mixed-training"]
 
 # substitutivity
 # python run_train.py +experiment=pcfgset_gpt2-gpt2_gumbel_supervised ++datamodule/experiment="substitutivity" trainer.accelerator='gpu' trainer.devices=1 +experiment.datamodule.data_type_sampling_probability="[0.8, 0.10, 0.10]" +experiment.datamodule.dataset_parameters.supervision_ratio="[0.05, 0.45, 0.55]" logger.wandb.tags=["mixed-training"]
@@ -85,7 +86,7 @@ python run_train.py +experiment=pcfgset_gpt2-gpt2_gumbel_supervised ++datamodule
 # -------------------------- Mixed Training -------------------------- #
 # data_type_sampling_probability=[0.8, 0.10, 0.10], supervision_ratio: [0.05, 0.45, 0.55]
 # use BPE tokenizer
-python run_train.py +experiment=cogs_gpt2-gpt2_gumbel_supervised trainer.accelerator='gpu' trainer.devices=1 datamodule.data_type_sampling_probability="[0.8, 0.2]" datamodule.dataset_parameters.supervision_ratio="[0.01, 0.99]" logger.wandb.tags=["cogs","mixed-training"]
+python run_train.py +experiment=cogs_gpt2-gpt2_gumbel_supervised trainer.accelerator='gpu' datamodule.dataset_parameters.supervision_ratio="[0.01, 0.99]" logger.wandb.tags=["cogs","mixed-training"]
 
 # --------------------------------------------------------------------------------------------------- #
 # --------------------------------------------------------------------------------------------------- #
@@ -94,7 +95,7 @@ python run_train.py +experiment=cogs_gpt2-gpt2_gumbel_supervised trainer.acceler
 # -------------------------- Mixed Training -------------------------- #
 # data_type_sampling_probability=[0.8, 0.10, 0.10], supervision_ratio: [0.05, 0.45, 0.55]
 # use BPE tokenizer
-python run_train.py +experiment=cfq_gpt2-gpt2_gumbel_supervised trainer.accelerator='gpu' trainer.devices=1 +experiment.datamodule.data_type_sampling_probability="[0.8, 0.10, 0.10]" +experiment.datamodule.dataset_parameters.supervision_ratio="[0.05, 0.45, 0.55]" logger.wandb.tags=["cfq","mixed-training"]
+python run_train.py +experiment=cfq_gpt2-gpt2_gumbel_supervised trainer.accelerator='gpu' trainer.devices=1 datamodule.dataset_parameters.supervision_ratio="[0.05, 0.9]" callbacks.supervision_scheduler.scheduler_xz.hp_init=1.0 callbacks.supervision_scheduler.scheduler_xz.hp_end=1.0 callbacks.supervision_scheduler.scheduler_z.hp_init=1.0 callbacks.supervision_scheduler.scheduler_z.hp_end=1.0 logger.wandb.tags=["mixed-training"]
 
 deactivate
 module purge

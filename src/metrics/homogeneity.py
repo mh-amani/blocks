@@ -3,12 +3,6 @@ from torchmetrics import Metric
 from sklearn.metrics import homogeneity_score
 import numpy as np
 
-
-import torch
-from torchmetrics import Metric
-from sklearn.metrics import homogeneity_score
-
-
 class SentenceHomogeneity(Metric):
     def __init__(self, dist_sync_on_step=False):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
