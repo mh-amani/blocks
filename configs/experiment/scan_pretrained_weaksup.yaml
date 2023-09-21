@@ -1,0 +1,66 @@
+# @package _global_
+
+defaults:
+  - override /datamodule: scan.yaml
+  - override /model: load_from_pretrained.yaml
+
+# name of the run determines folder name in logs
+name: "scan_symae"
+run_name: "supervised-weak-0.02-pretrained-gumbel" 
+
+track_gradients: Yes
+overfit_batch: 0
+
+trainer:
+  devices: [0] # 'auto', or numbers like 2, [0]
+  accelerator: 'gpu' #cpu, tpu, (devices=4, accelerator="gpu", strategy="ddp"), (devices="auto", accelerator="auto")  
+
+
+datamodule:
+  dataset_parameters:
+    supervision_ratio: [0.02, 0.9] # [r(xz), r(z|not xz)]
+    batch_size: 64
+    num_workers: 48
+
+callbacks:
+  supervision_scheduler:
+    scheduler_xz:
+      num_warmup_steps: 1
+      num_training_steps: 100
+      hp_init: 1.0
+      hp_end: 0.2
+    scheduler_z:
+      # between 0 and 1, saying given that a sample is not xz, how likely is it to be z.
+      num_warmup_steps: 30
+      num_training_steps: 100
+      hp_init: 1.0
+      hp_end: 0.9
+
+
+model:
+  checkpoint_path: '/dlabdata1/masani/blocks/logs/training/runs/supervised-only-0.02-gumbel/2023-09-20_19-38-25/checkpoints/last.ckpt'
+  substitute_config:
+    model_params:
+      loss_coeff:
+        # turn them to -1 to disable that loss, (in training, not in validation)
+        xzx: 1.0
+        zxz: 1.0
+        supervised_seperated_x: 1.0
+        supervised_seperated_z: 1.0
+    
+      acc_grad_batch: 16
+
+    optimizer:
+      lr: 0.0005
+
+    lr_scheduler:
+      mode: "min"
+      factor: 0.8
+      patience: 5
+      threshold: 0.01
+      threshold_mode: "abs"
+      cooldown: 5
+      min_lr: 1e-6
+      eps: 1e-8
+      verbose: True
+
