@@ -331,15 +331,22 @@ class XZAutoencoder(LightningModule):
         
         if autoreg_z_available:
             z_hat_ids_autoreg = outputs['zxz']['z_hat_ids'].detach()
-            z_ids_autoreg, z_hat_ids_autoreg = pad_label_label(z_ids, z_hat_ids_autoreg, self.pad_token_id)
+            x_hat_ids_autoreg = outputs['zxz']['x_hat_ids'].detach()
 
-            self.accuracy_measures(z_ids_autoreg, z_hat_ids_autoreg , stage, 'Z', 'autoreg') 
+            z_ids_autoreg, z_hat_ids_autoreg = pad_label_label(z_ids, z_hat_ids_autoreg, self.pad_token_id)
+            x_ids_autoreg, x_hat_ids_autoreg = pad_label_label(x_ids, x_hat_ids_autoreg, self.pad_token_id)
+            
+            self.accuracy_measures(z_ids_autoreg, z_hat_ids_autoreg, stage, 'Z', 'autoreg') 
+            self.accuracy_measures(x_ids_autoreg, x_hat_ids_autoreg, stage, 'X', 'autoreg_hidden_layer')
          
         if autoreg_x_available:
             x_hat_ids_autoreg = outputs['xzx']['x_hat_ids'].detach() 
+            z_hat_ids_autoreg = outputs['xzx']['z_hat_ids'].detach()
             x_ids_autoreg, x_hat_ids_autoreg = pad_label_label(x_ids, x_hat_ids_autoreg, self.pad_token_id)
+            z_ids_autoreg, z_hat_ids_autoreg = pad_label_label(z_ids, z_hat_ids_autoreg, self.pad_token_id)
 
             self.accuracy_measures(x_ids_autoreg, x_hat_ids_autoreg, stage, 'X', 'autoreg')
+            self.accuracy_measures(z_ids_autoreg, z_hat_ids_autoreg, stage, 'Z', 'autoreg_hidden_layer')
 
         return outputs
 

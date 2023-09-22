@@ -30,6 +30,11 @@ job:
         - callbacks.model_checkpoint.monitor
         - callbacks.early_stopping
         - trainer.max_epochs
+        - trainer.min_epochs
+        - callbacks.supervision_scheduler.scheduler_xz.hp_end
+        - callbacks.supervision_scheduler.scheduler_z.hp_end
+        - callbacks.supervision_scheduler.scheduler_xz.hp_init
+        - callbacks.supervision_scheduler.scheduler_z.hp_init
 
 # Set cuda visible devices from command line: export CUDA_VISIBLE_DEVICES=0;python evaluate_kilt_dataset.py
 # Or python run.py +hydra.job.env_set.CUDA_VISIBLE_DEVICES="3'
