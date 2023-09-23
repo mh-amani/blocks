@@ -41,19 +41,20 @@ class PCFGSetDataset(AbstractDataset):
                 src = open(src_path, 'r').readlines()
                 tgt = open(tgt_path, 'r').readlines()
 
-                src_tokenized = []
-                tgt_tokenized = []
 
                 for i, line in enumerate(src):
                     # inject spaces between any letter that is immediately followed by a number
                     # this is to make sure that tokens like A15 are decomposed to A and 15
-                    line = re.sub(r'([a-zA-Z]+)([0-9]+)', r'\1 \2', line)
-                    # replace the original line with the new line
+                    # line = re.sub(r'([a-zA-Z]+)([0-9]+)', r'\1 \2', line)
+
+                    # A15 --> A 1 5
+                    line = re.sub(r'([a-zA-Z]+)|([0-9]+)', lambda match: (match.group(1) + ' ') if match.group(1) else ' '.join(match.group(2)), line)
+                    # line = re.sub(r'([a-zA-Z]+)([0-9]+)', r'\1 \2', line)
                     src[i] = line
 
-                for line in tgt:
-                    line = re.sub(r'([a-zA-Z]+)([0-9]+)', r'\1 \2', line)
-                    # tgt_tokenized.append(tokenizer.tokenize_line(line))
+                for i, line in enumerate(tgt):
+                    line = re.sub(r'([a-zA-Z]+)|([0-9]+)', lambda match: (match.group(1) + ' ') if match.group(1) else ' '.join(match.group(2)), line)
+                    # line = re.sub(r'([a-zA-Z]+)([0-9]+)', r'\1 \2', line)
                     tgt[i] = line
                 
                 self.loaded_dataset[key] = datasets.Dataset.from_dict({'source': src, 'target': tgt})
