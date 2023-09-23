@@ -7,7 +7,7 @@ def batch_iterator(dataset, key, batch_size=1000):
 
 
 def SimpleWordLevelTokenizer(dataset, key, **kwargs):
-    tokenizer = Tokenizer(models.WordLevel(unk_token="[UNK]"))
+    tokenizer = Tokenizer(models.WordLevel(unk_token="[unk]"))
     tokenizer.pre_tokenizer = pre_tokenizers.Whitespace()
     
     iterator = batch_iterator(dataset, key=key, batch_size=kwargs['batch_size'])
@@ -31,7 +31,7 @@ def SimpleWordLevelTokenizer(dataset, key, **kwargs):
 #     return tokenizer
 
 def SimpleUnigramTokenizer(dataset, key, **kwargs):
-    tokenizer = Tokenizer(models.BPE())
+    tokenizer = Tokenizer(models.BPE(unk_token="[unk]"))
     tokenizer.pre_tokenizer = pre_tokenizers.Whitespace()
     
     iterator = batch_iterator(dataset, key=key, batch_size=kwargs['batch_size'])
