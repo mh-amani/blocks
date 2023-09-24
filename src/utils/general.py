@@ -167,9 +167,9 @@ def log_hyperparameters(
     hparams = {}
 
     # choose which parts of hydra configs will be saved to loggers
-    hparams["trainer"] = config["trainer"]
-    hparams["model"] = config["model"]
-    hparams["datamodule"] = config["datamodule"]
+    hparams["trainer"] = OmegaConf.to_container(config, resolve=True) 
+    hparams["model"] = OmegaConf.to_container(config["model"], resolve=True)
+    hparams["datamodule"] = OmegaConf.to_container(config["datamodule"], resolve=True)
 
     # save number of model parameters
     hparams["model/params_total"] = sum(p.numel() for p in model.parameters())
@@ -183,7 +183,7 @@ def log_hyperparameters(
     if "seed" in config:
         hparams["seed"] = config["seed"]
     if "callbacks" in config:
-        hparams["callbacks"] = config["callbacks"]
+        hparams["callbacks"] = OmegaConf.to_container(config["callbacks"], resolve=True)
 
     # send hparams to all loggers
     trainer.logger.log_hyperparams(hparams)
