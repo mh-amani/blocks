@@ -4,10 +4,11 @@ devices: 'auto' # also numbers
 accelerator: 'auto' #cpu, tpu, (devices=4, accelerator="gpu", strategy="ddp"), (devices="auto", accelerator="auto")
 
 accumulate_grad_batches: 1
-max_epochs: 1000 #(-1) for infinite
-min_epochs: 10
-max_steps: -1
+min_epochs: 50
+max_epochs: 200 #(-1) for infinite
+max_steps: -1 #(-1) for infinite
 check_val_every_n_epoch: 1
+precision: 16-mixed # 16, 32
 #val_check_interval: ${mult_int:${.accumulate_grad_batches}, 1000}
 log_every_n_steps: 1
 

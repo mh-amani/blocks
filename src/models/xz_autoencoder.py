@@ -8,8 +8,7 @@ import torch
 from omegaconf import OmegaConf
 from src.utils.metrics import pad_label_label
 import numpy as np
-import wandb
-
+from torchmetrics.wrappers import BootStrapper
 
 class XZAutoencoder(LightningModule):
     def __init__(self, **kwargs) -> None:
@@ -50,9 +49,10 @@ class XZAutoencoder(LightningModule):
         # Metrics
         self.completeness = {'X': src.metrics.Completeness(), 'Z': src.metrics.Completeness()}
         self.homogeneity = {'X': src.metrics.SentenceHomogeneity(), 'Z': src.metrics.SentenceHomogeneity()}
-        self.accuracy = {'X': src.metrics.Accuracy(self.pad_token_id), 'Z': src.metrics.Accuracy(self.pad_token_id)}
-        self.accuracy_sentence = {'X': src.metrics.Accuracy(self.pad_token_id), 
-                                  'Z': src.metrics.Accuracy(self.pad_token_id)}
+        self.accuracy = {'X': src.metrics.Accuracy(self.pad_token_id).to(self.device), 
+                         'Z': src.metrics.Accuracy(self.pad_token_id).to(self.device)}
+        self.accuracy_sentence = {'X': src.metrics.Accuracy(self.pad_token_id).to(self.device), 
+                                  'Z': src.metrics.Accuracy(self.pad_token_id).to(self.device)}
         self.token_homogeneity = {'X': src.metrics.TokenHomogeneity(self.eos_token_id),
                                    'Z': src.metrics.TokenHomogeneity(self.eos_token_id)}
 
@@ -215,13 +215,9 @@ class XZAutoencoder(LightningModule):
         x_ids = batch['x_ids']
         z_ids = batch['z_ids']
 
-        # logging the supervision type, 10 for only x, 01 for only z, 11 for both :/ 
-        # self.log_dict.__code__.co_varnames
-        wandb.log({'x_data_available': data_type[0], 'z_data_available': data_type[1],
-                   'global_step': self.global_step, 'batch_size': self.batch_size})
-        # self.log(f"{stage}/x_data_available", int(data_type[0]), batch_size=self.batch_size)
-        # self.log(f"{stage}/z_data_available", int(data_type[1]), batch_size=self.batch_size)
-        # self.log('global_step', int(self.global_step), batch_size=self.batch_size)
+        self.log(f"{stage}/x_data_available", float(data_type[0]), batch_size=self.batch_size)
+        self.log(f"{stage}/z_data_available", float(data_type[1]), batch_size=self.batch_size)
+        self.log('global_step', float(self.global_step), batch_size=self.batch_size)
         
         outputs = {}
         outputs['supervised_seperated'] = None
@@ -335,6 +331,14 @@ class XZAutoencoder(LightningModule):
 
             z_ids_autoreg, z_hat_ids_autoreg = pad_label_label(z_ids, z_hat_ids_autoreg, self.pad_token_id)
             x_ids_autoreg, x_hat_ids_autoreg = pad_label_label(x_ids, x_hat_ids_autoreg, self.pad_token_id)
+
+            x_pad_mask = torch.logical_not(torch.eq(x_ids_autoreg, self.pad_token_id))
+            z_pad_mask = torch.logical_not(torch.eq(z_ids_autoreg, self.pad_token_id))
+
+            x_hat_ids_autoreg[:, :-1] = x_hat_ids_autoreg[:, :-1] * x_pad_mask[:, 1:]
+            x_hat_ids_autoreg[:, -1] = 0
+            z_hat_ids_autoreg[:, :-1] = z_hat_ids_autoreg[:, :-1] * z_pad_mask[:, 1:]
+            z_hat_ids_autoreg[:, -1] = 0
             
             self.accuracy_measures(z_ids_autoreg, z_hat_ids_autoreg, stage, 'Z', 'autoreg') 
             self.accuracy_measures(x_ids_autoreg, x_hat_ids_autoreg, stage, 'X', 'autoreg_hidden_layer')
@@ -346,6 +350,14 @@ class XZAutoencoder(LightningModule):
             x_ids_autoreg, x_hat_ids_autoreg = pad_label_label(x_ids, x_hat_ids_autoreg, self.pad_token_id)
             z_ids_autoreg, z_hat_ids_autoreg = pad_label_label(z_ids, z_hat_ids_autoreg, self.pad_token_id)
 
+            x_pad_mask = torch.logical_not(torch.eq(x_ids_autoreg, self.pad_token_id))
+            z_pad_mask = torch.logical_not(torch.eq(z_ids_autoreg, self.pad_token_id))
+
+            x_hat_ids_autoreg[:, :-1] = x_hat_ids_autoreg[:, :-1] * x_pad_mask[:, 1:]
+            x_hat_ids_autoreg[:, -1] = 0
+            z_hat_ids_autoreg[:, :-1] = z_hat_ids_autoreg[:, :-1] * z_pad_mask[:, 1:]
+            z_hat_ids_autoreg[:, -1] = 0
+
             self.accuracy_measures(x_ids_autoreg, x_hat_ids_autoreg, stage, 'X', 'autoreg')
             self.accuracy_measures(z_ids_autoreg, z_hat_ids_autoreg, stage, 'Z', 'autoreg_hidden_layer')
 
@@ -355,8 +367,9 @@ class XZAutoencoder(LightningModule):
     def accuracy_measures(self, ids, hat_ids, stage, variable, type):
         
         # shifting to make the sequences aligned, removing bos
-        ids = ids[:, 1:]
-        hat_ids = hat_ids[:, :-1]
+        acc_device = self.accuracy[variable].device
+        ids = ids[:, 1:].to(acc_device)
+        hat_ids = hat_ids[:, :-1].to(acc_device)
 
         # #Completeness test
         # value = self.completeness[variable](hat_ids, ids)
@@ -367,12 +380,22 @@ class XZAutoencoder(LightningModule):
         # self.log(f'{stage}/{type}/homogeneity/{variable}', value, batch_size=self.batch_size)
 
         #Accuracy test
-        value = self.accuracy[variable](hat_ids.reshape(-1), ids.reshape(-1))
-        self.log(f'{stage}/{type}/accuracy/{variable}', value, batch_size=self.batch_size)
+        acc = self.accuracy[variable](hat_ids.reshape(-1), ids.reshape(-1))
+        # if it is a bootstrapped dict, then we need to get the mean of the bootstrapped values and the std
+        if isinstance(acc, collections.abc.Mapping):
+            self.log(f'{stage}/{type}/accuracy/{variable}', acc['mean'], batch_size=self.batch_size)
+            self.log(f'{stage}/{type}/accuracy-std/{variable}', acc['std'], batch_size=self.batch_size)
+        else:
+            self.log(f'{stage}/{type}/accuracy/{variable}', acc, batch_size=self.batch_size)
 
         #Accuracy sentence test
-        value = self.accuracy_sentence[variable](hat_ids, ids)
-        self.log(f'{stage}/{type}/accuracy_sentence/{variable}', value, batch_size=self.batch_size)
+        acc_sentence = self.accuracy_sentence[variable](hat_ids, ids)
+        if isinstance(acc_sentence, collections.abc.Mapping):
+            self.log(f'{stage}/{type}/accuracy/{variable}', acc_sentence['mean'], batch_size=self.batch_size)
+            self.log(f'{stage}/{type}/accuracy-std/{variable}', acc_sentence['std'], batch_size=self.batch_size)
+        else:
+            self.log(f'{stage}/{type}/accuracy/{variable}', acc_sentence, batch_size=self.batch_size)
+
 
         # #Token homogeneity test
         # value = self.token_homogeneity[variable](hat_ids, ids)
@@ -381,6 +404,7 @@ class XZAutoencoder(LightningModule):
         # if self.hparams.get('write_testing_output', True):
         #     step_summary = {'stage': stage, 'type': type, 'x_ids': x_ids, 'x_hat_ids': x_hat_ids, 'z_ids': z_ids, 'z_hat_ids': z_hat_ids}
         #     self._write_testing_output(step_summary)
+        return acc, acc_sentence
 
         
     def validation_step(self, batch, batch_idx):
@@ -389,7 +413,19 @@ class XZAutoencoder(LightningModule):
     
 
     def test_step(self, batch, batch_idx):
-        self.compute_accuracy_measures(batch, stage='test')
+        if self.hparams['model_params'].get('num_bootstrap_tests', False):
+            n = self.hparams['model_params']['num_bootstrap_tests']
+            self.accuracy = {'X': BootStrapper(src.metrics.Accuracy(self.pad_token_id).to(self.device), num_bootstraps=n), 
+                             'Z': BootStrapper(src.metrics.Accuracy(self.pad_token_id).to(self.device), num_bootstraps=n)}
+            self.accuracy_sentence = {'X': BootStrapper(src.metrics.Accuracy(self.pad_token_id).to(self.device), num_bootstraps=n),
+                                        'Z': BootStrapper(src.metrics.Accuracy(self.pad_token_id).to(self.device), num_bootstraps=n)}
+            
+        
+        output_summary = self.compute_accuracy_measures(batch, stage='test')
+        
+        if self.hparams.get('write_testing_output', True):
+            self._write_testing_output(output_summary)
+        
         return 
     
     

@@ -33,9 +33,9 @@
 # python3 run_train.py +experiment=scan_gpt2-gpt2_gumbel_supervised.yaml run_name="supervised-only-0.01-gumbel" datamodule.dataset_parameters.supervision_ratio="[0.01, 0.9]" trainer.devices=[1] model.optimizer.lr=0.002 trainer.min_epochs=200 trainer.min_epochs=200 datamodule.dataset_parameters.batch_size=512 datamodule.dataset_parameters.train_ratio=0.99 callbacks.supervision_scheduler.scheduler_xz.hp_init=1.0 callbacks.supervision_scheduler.scheduler_xz.hp_end=1.0 callbacks.supervision_scheduler.scheduler_z.hp_init=1.0 callbacks.supervision_scheduler.scheduler_z.hp_end=1.0 logger.wandb.tags=["supervised-training"] +test=true || true
 
 
-python3 run_train.py +experiment=scan_gpt2-gpt2_gumbel_supervised.yaml run_name="supervised-only-0.2-gumbel" datamodule.dataset_parameters.supervision_ratio="[0.2, 0.9]" trainer.devices=[1] model.optimizer.lr=0.002 trainer.min_epochs=200 trainer.min_epochs=200 datamodule.dataset_parameters.batch_size=512 callbacks.supervision_scheduler.scheduler_xz.hp_init=1.0 callbacks.supervision_scheduler.scheduler_xz.hp_end=1.0 callbacks.supervision_scheduler.scheduler_z.hp_init=1.0 callbacks.supervision_scheduler.scheduler_z.hp_end=1.0 logger.wandb.tags=["supervised-training"] || true
-python3 run_train.py +experiment=scan_gpt2-gpt2_gumbel_supervised.yaml run_name="supervised-only-0.3-gumbel" datamodule.dataset_parameters.supervision_ratio="[0.3, 0.9]" trainer.devices=[1] model.optimizer.lr=0.002 trainer.min_epochs=200 trainer.min_epochs=200 datamodule.dataset_parameters.batch_size=512 callbacks.supervision_scheduler.scheduler_xz.hp_init=1.0 callbacks.supervision_scheduler.scheduler_xz.hp_end=1.0 callbacks.supervision_scheduler.scheduler_z.hp_init=1.0 callbacks.supervision_scheduler.scheduler_z.hp_end=1.0 logger.wandb.tags=["supervised-training"] || true
-python3 run_train.py +experiment=scan_gpt2-gpt2_gumbel_supervised.yaml run_name="supervised-only-0.4-gumbel" datamodule.dataset_parameters.supervision_ratio="[0.4, 0.9]" trainer.devices=[1] model.optimizer.lr=0.002 trainer.min_epochs=200 trainer.min_epochs=200 datamodule.dataset_parameters.batch_size=512 callbacks.supervision_scheduler.scheduler_xz.hp_init=1.0 callbacks.supervision_scheduler.scheduler_xz.hp_end=1.0 callbacks.supervision_scheduler.scheduler_z.hp_init=1.0 callbacks.supervision_scheduler.scheduler_z.hp_end=1.0 logger.wandb.tags=["supervised-training"] || true
+python3 run_train.py +experiment=scan_gpt2-gpt2_gumbel_supervised.yaml datamodule.dataset_parameters.supervision_ratio="[0.2, 0.9]" trainer.devices=[1]  || true
+python3 run_train.py +experiment=scan_gpt2-gpt2_gumbel_supervised.yaml run_name="supervised-only-0.3-gumbel" datamodule.dataset_parameters.supervision_ratio="[0.3, 0.9]" trainer.devices=[1] model.optimizer.lr=0.002  datamodule.dataset_parameters.batch_size=512 callbacks.supervision_scheduler.scheduler_xz.hp_init=1.0 callbacks.supervision_scheduler.scheduler_xz.hp_end=1.0 callbacks.supervision_scheduler.scheduler_z.hp_init=1.0 callbacks.supervision_scheduler.scheduler_z.hp_end=1.0 logger.wandb.tags=["supervised-training"] || true
+python3 run_train.py +experiment=scan_gpt2-gpt2_gumbel_supervised.yaml run_name="supervised-only-0.4-gumbel" datamodule.dataset_parameters.supervision_ratio="[0.4, 0.9]" trainer.devices=[1] model.optimizer.lr=0.002  datamodule.dataset_parameters.batch_size=512 callbacks.supervision_scheduler.scheduler_xz.hp_init=1.0 callbacks.supervision_scheduler.scheduler_xz.hp_end=1.0 callbacks.supervision_scheduler.scheduler_z.hp_init=1.0 callbacks.supervision_scheduler.scheduler_z.hp_end=1.0 logger.wandb.tags=["supervised-training"] || true
 
 
 # test the supervised data:
@@ -56,7 +56,7 @@ python3 run_train.py +experiment=scan_gpt2-gpt2_gumbel_supervised.yaml run_name=
 
 
 # testing
-
+python3 run_train.py "+experiment/inference=scan_gpt2-gpt2_gumbel", "datamodule.dataset_parameters.batch_size=64", "model.checkpoint_path='/home/masani/blocks/logs/training/runs/supervised-only-0.1-gumbel/2023-09-24_00-15-47/checkpoints/last.ckpt'"
 
 # --------------------------------------------------------------------------------------------------- #
 # --------------------------------------------------------------------------------------------------- #

@@ -16,6 +16,9 @@ class GumbelDiscreteLayer(AbstractDiscreteLayer):
     def decode(self, x):
         # return gumbel_softmax(x, tau=self.temperature, hard=True, dim=-1).argmax(dim=-1)
         # this is wrong, the softmax should not applied to the scores, but to the logits.
-        return gumbel_softmax(torch.log(x), tau=self.temperature, hard=True, dim=-1).argmax(dim=-1)
+        
+        # return gumbel_softmax(torch.log(x), tau=self.temperature, hard=True, dim=-1).argmax(dim=-1)
+        return torch.argmax(x, dim=-1)
+        
         # return torch.argmax(x, dim=-1)
     
