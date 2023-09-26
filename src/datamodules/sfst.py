@@ -11,17 +11,16 @@ import torch
 import hydra
 from datasets import Dataset as HFDataset
 
-
 class SFSTDatamodule(AbstractPLDataModule):
 
     def __init__(self, dataset_parameters, **kwargs):
         super().__init__(**kwargs)
         self.dataset_parameters = dataset_parameters
+        
 
         self.data_train = hydra.utils.instantiate(self.params['datasets']['train'], self.dataset_parameters)
         self.data_val = hydra.utils.instantiate(self.params['datasets']['val'], self.dataset_parameters)
         self.data_test = hydra.utils.instantiate(self.params['datasets']['test'], self.dataset_parameters)
-
 
 
 class SFSTDataset(AbstractDataset):

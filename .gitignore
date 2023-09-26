@@ -151,3 +151,4 @@ enviroment.yml
 best_ckpt_path.txt
 
 profiler.txt
+run-train.sh
