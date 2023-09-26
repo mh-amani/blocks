@@ -1,0 +1,38 @@
+# @package _global_
+
+# +experiment/inference=scan_gpt2-gpt2_gumbel
+
+defaults:
+  - override /datamodule: scan.yaml
+  - override /model: load_from_pretrained.yaml
+
+# name of the run determines folder name in logs
+name: "scan_symae"
+run_name: "inference-${datamodule.dataset_parameters.supervision_ratio[0]}-gumbel" # can also be sup,... 
+
+track_gradients: Yes
+overfit_batch: 0
+
+trainer:
+  devices: [0] # 'auto', or numbers like 2, [0]
+  accelerator: 'gpu' #cpu, tpu, (devices=4, accelerator="gpu", strategy="ddp"), (devices="auto", accelerator="auto")  
+
+
+datamodule:
+  dataset_parameters:
+    supervision_ratio: [0.02, 0.9] # [r(xz), r(z|not xz)]
+    batch_size: 64
+    num_workers: 48
+
+model:
+  checkpoint_path: '/dlabdata1/masani/blocks/logs/training/runs/supervised-only-0.02-gumbel/2023-09-20_19-38-25/checkpoints/last.ckpt'
+  substitute_config:
+    model_params:
+      loss_coeff:
+        # turn them to -1 to disable that loss, (in training, not in validation)
+        xzx: 1.0
+        zxz: 1.0
+        supervised_seperated_x: 1.0
+        supervised_seperated_z: 1.0
+    
+    
