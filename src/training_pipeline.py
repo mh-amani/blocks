@@ -113,6 +113,9 @@ def train(config: DictConfig) -> Optional[float]:
 
         log.info("Starting testing!")
         trainer.test(model=_model, datamodule=datamodule, ckpt_path=ckpt_path)
+        metric_dict = trainer.callback_metrics
+        log.info("Metrics dict:")
+        log.info(metric_dict)
 
     # Make sure everything closed properly
     log.info("Finalizing!")
