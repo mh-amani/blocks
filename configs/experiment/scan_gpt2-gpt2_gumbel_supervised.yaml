@@ -13,19 +13,15 @@ defaults:
 
 # name of the run determines folder name in logs
 name: "scan_symae"
-run_name: "supervised-gpt2_gpt2-gumbel" 
+run_name: "supervised-only-${datamodule.dataset_parameters.supervision_ratio}-${model.modules.disc_x.key}" 
 
 track_gradients: Yes
 overfit_batch: 0
 
-trainer:
-  devices: [0] # 'auto', or numbers like 2, [0]
-  accelerator: 'gpu' #cpu, tpu, (devices=4, accelerator="gpu", strategy="ddp"), (devices="auto", accelerator="auto")
-
 model:
   discretizer:
     gumbel:
-      label_smoothing_scale: 0.0001
+      label_smoothing_scale: 0.0002
   model_params:
     loss_coeff:
       # turn them to -1 to disable that loss, (in training, not in validation)
@@ -35,6 +31,7 @@ model:
       supervised_seperated_z: 1.0
     
     acc_grad_batch: 1
+    num_bootstrap_tests: 10
   
   modules:
     model_x_to_z: ${model.sequence_to_sequence_model.gpt2_gpt2}
@@ -43,7 +40,7 @@ model:
     disc_z: ${model.discretizer.gumbel}
   
   optimizer:
-    lr: 0.003
+    lr: 0.002
 
   lr_scheduler:
     mode: "min"
@@ -59,7 +56,7 @@ model:
 
 datamodule:
   dataset_parameters:
-    supervision_ratio: [0.05, 0.9] # [r(xz), r(z|not xz)]
+    supervision_ratio: [0.2, 0.9] # [r(xz), r(z|not xz)]
     batch_size: 512
     num_workers: 48
 
@@ -69,14 +66,18 @@ callbacks:
       num_warmup_steps: 20
       num_training_steps: 100
       hp_init: 1.0
-      hp_end: 0.2
+      hp_end: 1.0
     scheduler_z:
       # between 0 and 1, saying given that a sample is not xz, how likely is it to be z.
       num_warmup_steps: 30
       num_training_steps: 80
-      hp_init: 0.5
-      hp_end: 0.9
+      hp_init: 1.0
+      hp_end: 1.0
 
 
+logger:
+  wandb:
+    tags: ["supervised-training"]
+    notes: 
 
-
+# test: True

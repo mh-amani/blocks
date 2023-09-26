@@ -13,8 +13,13 @@ class Accuracy(Metric):
 
     def update(self, preds: torch.Tensor, targets: torch.Tensor):
         """Preds and targets should be torch tensors where each row corresponds to a single sample"""
-        
+
+        # # Convert input tensors to the device of the Accuracy instance
+        # preds = preds.to(self.device)
+        # targets = targets.to(self.device)
+
         assert preds.shape == targets.shape
+        
 
         # remove padding from matches, if not at sentence level accuracy
         if len(targets.shape) == 1:

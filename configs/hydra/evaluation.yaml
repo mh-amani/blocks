@@ -9,9 +9,30 @@ sweep:
 
 # you can set here environment variables that are universal for all users
 job:
+  chdir: True
   env_set:
     CUDA_DEVICE_ORDER: "PCI_BUS_ID"
     HYDRA_FULL_ERROR: "1"
+  config:
+    override_dirname:
+      exclude_keys:
+        - ckpt_path
+        - datamodule
+        - datamodule.batch_size
+        - logger.wandb.tags
+        - model.optimizer
+        - model/optimizer
+        - model/scheduler_config
+        - model
+        - callbacks
+        - callbacks.model_checkpoint.monitor
+        - callbacks.early_stopping
+        - trainer.max_epochs
+        - trainer.min_epochs
+        - callbacks.supervision_scheduler.scheduler_xz.hp_end
+        - callbacks.supervision_scheduler.scheduler_z.hp_end
+        - callbacks.supervision_scheduler.scheduler_xz.hp_init
+        - callbacks.supervision_scheduler.scheduler_z.hp_init
 
 # Set cuda visible devices from command line: export CUDA_VISIBLE_DEVICES=0;python evaluate_kilt_dataset.py
 # Or python run.py +hydra.job.env_set.CUDA_VISIBLE_DEVICES="3'

@@ -1,5 +1,6 @@
 gumbel:
   _target_: src.models.modules.discrete_layers.gumbel.GumbelDiscreteLayer
+  key: gumbel
   tau: 1.0
   hard: False
   label_smoothing_scale: 0.0

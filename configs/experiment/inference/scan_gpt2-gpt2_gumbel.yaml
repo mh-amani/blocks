@@ -28,6 +28,7 @@ model:
   checkpoint_path: '/dlabdata1/masani/blocks/logs/training/runs/supervised-only-0.02-gumbel/2023-09-20_19-38-25/checkpoints/last.ckpt'
   substitute_config:
     model_params:
+      num_bootstrap_tests: 10
       loss_coeff:
         # turn them to -1 to disable that loss, (in training, not in validation)
         xzx: 1.0
