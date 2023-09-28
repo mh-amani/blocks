@@ -1,7 +1,0 @@
-_target_: src.models.collators.tokenizers.simple_word_level_tokenizer.SimpleUnigramTokenizer
-
-model_max_length: ${model.collator.max_length}
-vocab_size: 30
-
-batch_size: ${datamodule.dataset_parameters.batch_size}
-tokenize_prior_training: True

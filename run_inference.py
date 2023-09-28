@@ -72,6 +72,7 @@ def run_inference(config: DictConfig):
 
     
     log.info("Starting testing!")
+    # trainer.test(model=model, datamodule=datamodule, ckpt_path=config.model.checkpoint_path)
     trainer.test(model=model, datamodule=datamodule)
 
     # for predictions use trainer.predict(...)

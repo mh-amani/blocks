@@ -8,39 +8,35 @@ from omegaconf import DictConfig
 class SimpleTextCollator:
     def __init__(self,
                 data_train,
-                max_X_length: int = None,
-                max_Z_length: int = None,
-                padding: bool = True,
                 special_tokens: dict = None,
                 **kwargs
             ):
         
-       
-        
-        self.max_X_length = max_X_length
-        self.max_Z_length = max_Z_length
-        self.padding = padding
+    
+        self.max_X_length = kwargs['tokenizer_x_params']['max_length']
+        self.max_Z_length = kwargs['tokenizer_z_params']['max_length']
+        self.padding = kwargs['padding']
+
+        self.tokenize_prior_training = kwargs.get('tokenize_prior_training', False)
 
         self.pad_token_id = special_tokens.index('[pad]')
         self.eos_token_id = special_tokens.index('[eos]')
         self.bos_token_id = special_tokens.index('[bos]')
-        self.unk_token_id = special_tokens.index('[unk]')
-
-        self.tokenize_prior_training = kwargs['tokenizer']['tokenize_prior_training']
+        self.unk_token_id = special_tokens.index('[unk]')        
         
-        
-        self.tokenizer_x = hydra.utils.instantiate(kwargs['tokenizer'], dataset=data_train, special_tokens=special_tokens, key='X', _recursive_=False)
-        self.tokenizer_z = hydra.utils.instantiate(kwargs['tokenizer'], dataset=data_train, special_tokens=special_tokens, key='Z', _recursive_=False)
+        self.tokenizer_x = hydra.utils.instantiate(kwargs['tokenizer_x'], dataset=data_train, special_tokens=special_tokens, **kwargs['tokenizer_x_params'] , _recursive_=False)
+        self.tokenizer_z = hydra.utils.instantiate(kwargs['tokenizer_z'], dataset=data_train, special_tokens=special_tokens, **kwargs['tokenizer_z_params'] , _recursive_=False)
 
-        if self.tokenize_prior_training:
-            self.x_ids = [
-                [self.bos_token_id] + self.tokenizer_x.encode(sample['X']).ids + [self.eos_token_id]
-                for sample in data_train
-            ]
-            self.z_ids = [
-                [self.bos_token_id] + self.tokenizer_z.encode(sample['Z']).ids + [self.eos_token_id]
-                for sample in data_train
-            ]
+    
+    def pre_tokenize(self, data_train):
+        self.x_ids = [
+            [self.bos_token_id] + self.tokenizer_x.encode(sample['x']).ids + [self.eos_token_id]
+            for sample in data_train
+        ]
+        self.z_ids = [
+            [self.bos_token_id] + self.tokenizer_z.encode(sample['z']).ids + [self.eos_token_id]
+            for sample in data_train
+        ]
 
 
     def collate_fn(self, batch: Iterable[dict]):
@@ -67,8 +63,8 @@ class SimpleTextCollator:
             x_ids = [self.x_ids[i] for i in collated_batch["id"]]
             z_ids = [self.z_ids[i] for i in collated_batch["id"]]
         else:
-            x_ids = [ [self.bos_token_id] + self.tokenizer_x.encode(sample[key]).ids + [self.eos_token_id] for sample in batch]
-            z_ids = [ [self.bos_token_id] + self.tokenizer_z.encode(sample[key]).ids + [self.eos_token_id] for sample in batch]
+            x_ids = [ [self.bos_token_id] + self.tokenizer_x.encode(sample['x']).ids + [self.eos_token_id] for sample in batch]
+            z_ids = [ [self.bos_token_id] + self.tokenizer_z.encode(sample['z']).ids + [self.eos_token_id] for sample in batch]
         
         if self.max_X_length is not None:
             x_ids = [i[: self.max_X_length] for i in x_ids]

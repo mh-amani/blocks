@@ -102,8 +102,8 @@ class PCFGSetDataset(AbstractDataset):
 
     def __getitem__(self, idx):
         # data_type should be [X_available, Z_available], where 1 means available and 0 means unavailable
-        return {"id": idx, "X": self.data[idx]['source'], 
-                "Z": self.data[idx]['target'], 'data_type': self.data_type[idx]}
+        return {"id": idx, "x": self.data[idx]['source'], 
+                "z": self.data[idx]['target'], 'data_type': self.data_type[idx]}
 
 
 class PCFGSetDatamodule(AbstractPLDataModule):

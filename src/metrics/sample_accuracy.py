@@ -39,7 +39,7 @@ class Accuracy(Metric):
 
     def compute(self):
         if self.total_correct == 0 or self.total == 0:
-            return torch.tensor(0).float()
+            return torch.tensor(0.0, device=self.device)
 
         accuracy = self.total_correct.float() / self.total
 

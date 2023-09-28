@@ -2,7 +2,7 @@
 _target_: src.datamodules.scan.SCANDatamodule
 dataset_target_: src.datamodules.scan.SCANDataset
 seed: 42
-tokenize_in_dataset: True
+
 data_type_sampling_probability: 
   - ${callbacks.supervision_scheduler.scheduler_xz.hp_init}
   - ${callbacks.supervision_scheduler.scheduler_z.hp_init} #[xz, p(z|not zx)]
@@ -15,7 +15,6 @@ dataset_parameters:
   supervision_ratio: [0.05, 0.5] # [r(xz), r(z|not xz)]
   num_workers: 8
   overfit_batch: ${overfit_batch}
-  tokenize_in_dataset: ${datamodule.tokenize_in_dataset}
   
 
 datasets:

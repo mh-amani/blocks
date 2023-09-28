@@ -86,6 +86,6 @@ class SCANDataset(AbstractDataset):
 
     def __getitem__(self, idx):
         # data_type should be [X_available, Z_available], where 1 means available and 0 means unavailable
-        return {"id": idx, "X": self.data[idx]['commands'], 
-                "Z": self.data[idx]['actions'], 'data_type': self.data_type[idx]}
+        return {"id": idx, "x": self.data[idx]['commands'], 
+                "z": self.data[idx]['actions'], 'data_type': self.data_type[idx]}
 
