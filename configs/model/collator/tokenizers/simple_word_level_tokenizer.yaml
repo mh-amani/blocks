@@ -1,0 +1,2 @@
+simple_word_level_tokenizer:
+  _target_: src.models.collators.tokenizers.simple_word_level_tokenizer.SimpleWordLevelTokenizer

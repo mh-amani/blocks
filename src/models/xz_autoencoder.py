@@ -29,7 +29,7 @@ class XZAutoencoder(LightningModule):
                                    'bos_token_id': self.bos_token_id}
         
         self.automatic_optimization = False
-        self.tokenize_after_generation = self.hparams.model_params.tokenize_after_generation
+        self.decode_after_autoreg_step = self.hparams.model_params.decode_after_autoreg_step
 
         # the encoder and decoder
         self.model_x_to_z = hydra.utils.instantiate(self.hparams.modules.model_x_to_z,
@@ -62,10 +62,11 @@ class XZAutoencoder(LightningModule):
         self.acc_grad_batch = self.hparams.model_params.acc_grad_batch
         assert self.acc_grad_batch > 0, "acc_grad_batch must be greater than 0"
 
-
+        
         # collate_fn
         train_dataset = kwargs['datamodule'].data_train
-        self.collator = hydra.utils.instantiate(self.hparams.collator, train_dataset, 
+        self.pretokenized_flag = 0
+        self.collator = hydra.utils.instantiate(self.hparams.collator, train_dataset,
                                                 special_tokens=self.special_tokens, _recursive_ = False)
         
         # discretizers
@@ -76,7 +77,10 @@ class XZAutoencoder(LightningModule):
         
         
 
-    # def setup(self, stage: str) -> None:
+    def setup(self, stage: str) -> None:
+        if self.hparams['collator']['tokenize_prior_training'] and self.pretokenized_flag==0:
+            self.collator.pre_tokenize(self.trainer.datamodule.data_train)
+            self.pretokenized_flag = 1
 
     def one_step_sequential_forward(self, model, discretizer, input_embeds, input_attention_mask, 
                                     output_embeds, output_attention_mask=None, past_key_values=None):
@@ -110,7 +114,7 @@ class XZAutoencoder(LightningModule):
                                                     output_embeds, output_attention_mask=output_attention_mask)
         
         
-        if self.tokenize_after_generation:
+        if self.decode_after_autoreg_step:
             output_embed = discretizer.scores_to_decoder(scores)
 
         while output_attention_mask.shape[1] < max_length and not torch.all(eos_flag):
@@ -123,7 +127,7 @@ class XZAutoencoder(LightningModule):
             ids = torch.cat((ids, current_ids), dim=1)
             scores = torch.cat((scores, current_scores), dim=1)
             
-            if self.tokenize_after_generation:
+            if self.decode_after_autoreg_step:
                 output_embed = discretizer.scores_to_decoder(current_scores)
 
             eos_flag = torch.logical_or(eos_flag, current_eos_flag)
@@ -383,7 +387,7 @@ class XZAutoencoder(LightningModule):
         acc = self.accuracy[variable](hat_ids.reshape(-1), ids.reshape(-1))
         # if it is a bootstrapped dict, then we need to get the mean of the bootstrapped values and the std
         if isinstance(acc, collections.abc.Mapping):
-            self.log(f'{stage}/{type}/accuracy/{variable}', acc['mean'], batch_size=self.batch_size)
+            self.log(f'{stage}/{type}/accuracy-mean/{variable}', acc['mean'], batch_size=self.batch_size)
             self.log(f'{stage}/{type}/accuracy-std/{variable}', acc['std'], batch_size=self.batch_size)
         else:
             self.log(f'{stage}/{type}/accuracy/{variable}', acc, batch_size=self.batch_size)
@@ -391,10 +395,10 @@ class XZAutoencoder(LightningModule):
         #Accuracy sentence test
         acc_sentence = self.accuracy_sentence[variable](hat_ids, ids)
         if isinstance(acc_sentence, collections.abc.Mapping):
-            self.log(f'{stage}/{type}/accuracy/{variable}', acc_sentence['mean'], batch_size=self.batch_size)
-            self.log(f'{stage}/{type}/accuracy-std/{variable}', acc_sentence['std'], batch_size=self.batch_size)
+            self.log(f'{stage}/{type}/sentence-accuracy-mean/{variable}', acc_sentence['mean'], batch_size=self.batch_size)
+            self.log(f'{stage}/{type}/sentence-accuracy-std/{variable}', acc_sentence['std'], batch_size=self.batch_size)
         else:
-            self.log(f'{stage}/{type}/accuracy/{variable}', acc_sentence, batch_size=self.batch_size)
+            self.log(f'{stage}/{type}/sentence-accuracy/{variable}', acc_sentence, batch_size=self.batch_size)
 
 
         # #Token homogeneity test
@@ -415,16 +419,20 @@ class XZAutoencoder(LightningModule):
     def test_step(self, batch, batch_idx):
         if self.hparams['model_params'].get('num_bootstrap_tests', False):
             n = self.hparams['model_params']['num_bootstrap_tests']
-            self.accuracy = {'X': BootStrapper(src.metrics.Accuracy(self.pad_token_id).to(self.device), num_bootstraps=n), 
-                             'Z': BootStrapper(src.metrics.Accuracy(self.pad_token_id).to(self.device), num_bootstraps=n)}
-            self.accuracy_sentence = {'X': BootStrapper(src.metrics.Accuracy(self.pad_token_id).to(self.device), num_bootstraps=n),
-                                        'Z': BootStrapper(src.metrics.Accuracy(self.pad_token_id).to(self.device), num_bootstraps=n)}
+            self.accuracy = {'X': BootStrapper(src.metrics.Accuracy(self.pad_token_id).to(self.device),
+                                                num_bootstraps=n).to(self.device), 
+                             'Z': BootStrapper(src.metrics.Accuracy(self.pad_token_id).to(self.device),
+                                                num_bootstraps=n).to(self.device)}
+            self.accuracy_sentence = {'X': BootStrapper(src.metrics.Accuracy(self.pad_token_id).to(self.device),
+                                                         num_bootstraps=n).to(self.device),
+                                        'Z': BootStrapper(src.metrics.Accuracy(self.pad_token_id).to(self.device),
+                                                           num_bootstraps=n).to(self.device)}
             
         
         output_summary = self.compute_accuracy_measures(batch, stage='test')
         
-        if self.hparams.get('write_testing_output', True):
-            self._write_testing_output(output_summary)
+        # if self.hparams.get('write_testing_output', True):
+        #     self._write_testing_output(output_summary)
         
         return 
     
@@ -502,14 +510,14 @@ class XZAutoencoder(LightningModule):
                 params[k] = v
         return params    
     
-    def _write_testing_output(self, step_summary):
-        output_path = f"testing_output_{self.global_rank}.jsonl"
+    # def _write_testing_output(self, step_summary):
+    #     output_path = f"testing_output_{self.global_rank}.jsonl"
 
-        if self.testing_output_parent_dir is not None:
-            output_path = os.path.join(self.testing_output_parent_dir, output_path)
+    #     if self.testing_output_parent_dir is not None:
+    #         output_path = os.path.join(self.testing_output_parent_dir, output_path)
 
-        with jsonlines.open(output_path, "a") as writer:
-            writer.write_all(step_summary)
+    #     with jsonlines.open(output_path, "a") as writer:
+    #         writer.write_all(step_summary)
 
     
     def discretizer_dimensions(self):

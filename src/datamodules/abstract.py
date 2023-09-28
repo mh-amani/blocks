@@ -71,7 +71,7 @@ class AbstractDataset(Dataset):
 
     def __getitem__(self, idx):
         # supervision can be X, Z or XZ
-        return {"id": idx, "X": self.data[idx]['X'], "Z": self.data[idx]['Z'], 'data_type': self.data_type[idx]}
+        return {"id": idx, "x": self.data[idx]['x'], "z": self.data[idx]['z'], 'data_type': self.data_type[idx]}
 
 
 

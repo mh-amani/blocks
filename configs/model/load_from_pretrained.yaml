@@ -1,20 +1,42 @@
 _target_: src.models.xz_autoencoder.XZAutoencoder.load_from_checkpoint
-
 checkpoint_path: ???
 
-substitute_config:
+defaults:
+  - collator: loaded_collator
+
+model_params:
+    tokenize_prior_training: ${model.substitute_config.model_params.tokenize_prior_training}
+    decode_after_autoreg_step: ${model.substitute_config.model_params.decode_after_autoreg_step}
+    max_x_length: ${model.substitute_config.model_params.max_x_length}
+    max_x_vocab_size: ${model.substitute_config.model_params.max_x_vocab_size}
+    max_z_length: ${model.substitute_config.model_params.max_z_length}
+    max_z_vocab_size: ${model.substitute_config.model_params.max_z_vocab_size}
+
+substitute_config:  
+  collator: ${model.collator}
+
   model_params:
+    tokenize_prior_training: True
+    decode_after_autoreg_step: True
+    max_x_length: 100
+    max_x_vocab_size: 200
+    max_z_length: 100
+    max_z_vocab_size: 200
+
     loss_coeff:
-      # turn them to -1 to disable that loss, (in training, not in validation)
       xzx: 1.0
       zxz: 1.0
       supervised_seperated_x: 1.0
       supervised_seperated_z: 1.0
-  
-    acc_grad_batch: 16
+    
+    acc_grad_batch: 1
+
+    use_tokenizer_vocab_len: true
+    disc_x_vocab_size: -1
+    disc_z_vocab_size: -1
 
   optimizer:
-    lr: 0.002
+    lr: 0.002232423
 
   lr_scheduler:
     mode: "min"
@@ -26,4 +48,4 @@ substitute_config:
     min_lr: 1e-6
     eps: 1e-8
     verbose: True
-
+  

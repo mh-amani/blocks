@@ -77,8 +77,8 @@ class SFSTDataset(AbstractDataset):
         return len(self.data)
 
     def __getitem__(self, idx):
-        return {"id": idx, "X": self.data[idx]['X'], 
-                "Z": self.data[idx]['Z'], 'data_type': self.data_type[idx]}
+        return {"id": idx, "x": self.data[idx]['X'], 
+                "z": self.data[idx]['Z'], 'data_type': self.data_type[idx]}
 
     def _load_data(self, load_dataset_params):
         dataset_size = load_dataset_params['dataset_size']

@@ -2,22 +2,25 @@ _target_: src.models.collators.simple_text_collator.SimpleTextCollator
 
 defaults:
   - tokenizers: 
-    - simple_word_level_tokenizer
-    - bpe_tokenizer
+    - pretrained_tokenizer
 
-tokenizer_x: ${model.collator.tokenizers.simple_word_level_tokenizer}
-tokenizer_z: ${model.collator.tokenizers.simple_word_level_tokenizer}
+tokenizer_x: ${model.collator.tokenizers.pretrained_tokenizer}
+tokenizer_z: ${model.collator.tokenizers.pretrained_tokenizer}
 
 tokenizer_x_params:
   key: 'x'
   max_length: ${model.model_params.max_z_length}
   batch_size: ${datamodule.dataset_parameters.batch_size}
   max_vocab_size: ${model.model_params.max_x_vocab_size}
+  tokenizer_path: -1 # -1 for automatic loading from parent directory of model checkpoint
+  checkpoint_path: ${model.checkpoint_path}
 tokenizer_z_params:
   key: 'z'
   max_length: ${model.model_params.max_x_length}
   batch_size: ${datamodule.dataset_parameters.batch_size}
   max_vocab_size: ${model.model_params.max_z_vocab_size}
+  tokenizer_path: -1 # -1 for automatic loading from parent directory of model checkpoint
+  checkpoint_path: ${model.checkpoint_path}
 
 
 tokenize_prior_training: ${model.model_params.tokenize_prior_training}
