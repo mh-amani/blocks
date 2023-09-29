@@ -1,9 +1,9 @@
 # output paths for hydra logs
 run:
-  dir: logs/evaluation/runs/${run_name}/${now:%Y-%m-%d}_${now:%H-%M-%S}
+  dir: logs/evaluation/runs/${datamodule.key}/${run_name}/${now:%Y-%m-%d}_${now:%H-%M-%S}
 
 sweep:
-  dir: logs/evaluation/multiruns/${run_name}/${now:%Y-%m-%d}_${now:%H-%M-%S}
+  dir: logs/evaluation/multiruns/${datamodule.key}/${run_name}/${now:%Y-%m-%d}_${now:%H-%M-%S}
   # subdir: ${hydra.job.num}
   subdir: ${hydra.job.override_dirname}
 

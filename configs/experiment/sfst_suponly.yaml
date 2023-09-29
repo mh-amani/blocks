@@ -1,0 +1,86 @@
+# @package _global_
+
+defaults:
+  - override /datamodule: sfst
+  - override /model: xz_autoencoder
+  - override /model/discretizer: ???
+  - override /model/sequence_to_sequence_model: gpt2_gpt2
+  - override /logger: wandb
+  - override /trainer: default
+# all parameters below will be merged with parameters from default configurations set above
+# this allows you to overwrite only specified parameters
+
+# name of the run determines folder name in logs
+name: "sfst_simae"
+run_name: "suponly-${datamodule.dataset_parameters.supervision_ratio}-${model.sequence_to_sequence_model.key}-${model.discretizer.key}" 
+
+track_gradients: Yes
+overfit_batch: 0
+
+trainer:
+  devices: [0] # 'auto', or numbers like 2, [0]
+  accelerator: 'gpu' #cpu, tpu, (devices=4, accelerator="gpu", strategy="ddp"), (devices="auto", accelerator="auto")
+
+datamodule:
+  dataset_parameters:
+    supervision_ratio: [0.2, 0.9] # [r(xz), r(z|not xz)]
+    batch_size: 512
+    num_workers: 8
+
+    # SFST specific parameters
+    latent_vocab_size: 10
+    maximum_input_alphabet_delta: 1
+    p_empty_emission: 0.3
+    dataset_size: 20000
+    node_size: 100
+    max_length: 50
+    output_alphabet_size: 10
+
+model:
+  model_params:
+    acc_grad_batch: 1
+    num_bootstrap_tests: 10
+
+    max_x_length: ${datamodule.dataset_parameters.max_length} + 3
+    max_x_vocab_size: ${datamodule.dataset_parameters.max_length} + 4
+    max_z_length: ${datamodule.dataset_parameters.max_length} + 3
+    max_z_vocab_size: ${datamodule.dataset_parameters.max_length} + 4
+    loss_coeff:
+      # turn them to -1 to disable that loss, (in training, not in validation)
+      xzx: 1.0
+      zxz: 1.0
+      supervised_seperated_x: 1.0
+      supervised_seperated_z: 1.0
+  
+  optimizer:
+    lr: 0.001
+
+  lr_scheduler:
+    mode: "min"
+    factor: 0.8
+    patience: 5
+    threshold: 0.01
+    threshold_mode: "abs"
+    cooldown: 5
+    min_lr: 1e-6
+    eps: 1e-8
+    verbose: True
+
+callbacks:
+  supervision_scheduler:
+    scheduler_xz:
+      num_warmup_steps: 1
+      num_training_steps: 100
+      hp_init: 1.0
+      hp_end: 1.0
+    scheduler_z:
+      # between 0 and 1, saying given that a sample is not xz, how likely is it to be z.
+      num_warmup_steps: 1
+      num_training_steps: 100
+      hp_init: 1.0
+      hp_end: 1.0
+
+logger:
+  wandb:
+    tags: ["supervised-training"]
+    notes:

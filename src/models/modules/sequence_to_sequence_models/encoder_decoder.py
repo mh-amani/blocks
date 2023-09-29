@@ -2,9 +2,9 @@ from transformers import EncoderDecoderConfig, EncoderDecoderModel, BartModel
 from omegaconf import OmegaConf
 import hydra
 
-def EncoderDecoder(special_tokens_ids, **kwargs):        
+def EncoderDecoder(**kwargs):        
     hparams = OmegaConf.create(kwargs)
-            
+    special_tokens_ids = hparams.special_tokens_ids
     # if loading a pretrained model, but need to change some of the parameters
     
     config_encoder = hydra.utils.instantiate(hparams.config_encoder, _recursive_ = False)

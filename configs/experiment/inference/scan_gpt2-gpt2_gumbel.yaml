@@ -8,7 +8,7 @@ defaults:
 
 # name of the run determines folder name in logs
 name: "scan_symae"
-run_name: "inference-${datamodule.dataset_parameters.supervision_ratio}-gumbel" # can also be sup,... 
+run_name: "inference-${datamodule.dataset_parameters.supervision_ratio}" # can also be sup,... 
 
 track_gradients: Yes
 overfit_batch: 0
@@ -21,10 +21,10 @@ datamodule:
   dataset_parameters:
     supervision_ratio: [0.02, 0.9] # [r(xz), r(z|not xz)]
     batch_size: 512
-    num_workers: 48
+    num_workers: 8
 
 model:
-  checkpoint_path: '/home/masani/logs/training/runs/supervised-only-[0.2, 0.9]-gumbel/2023-09-26_14-40-26/checkpoints/last.ckpt'
+  checkpoint_path: ???
   substitute_config:
     model_params:
       num_bootstrap_tests: 10
