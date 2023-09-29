@@ -1,6 +1,5 @@
-entmax:
-  _target_: src.models.modules.discrete_layers.entmax.EntmaxDiscreteLayer
-  key: entmax
-  alpha: 1.1
-  label_smoothing_scale: 0.0
+_target_: src.models.modules.discrete_layers.entmax.EntmaxDiscreteLayer
+key: entmax
+alpha: 1.1
+label_smoothing_scale: 0.0
 

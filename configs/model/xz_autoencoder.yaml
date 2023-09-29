@@ -3,26 +3,19 @@ name: "XZAutoencoder"
 
 defaults:
   # - inference: default
-  - discretizer:
-    - entmax
-    - gumbel
+  - discretizer: gumbel
   - collator: simple_text_collator
   - lr_scheduler: reduce_on_plateau # options: 
   - optimizer: default # options: default (Adam), AdamW
-  - sequence_to_sequence_model:
-    # - bert_bert
-    - bert_gpt2
-    - gpt2_gpt2
-    # - bart
+  - sequence_to_sequence_model: gpt2_gpt2
 
 special_tokens: ["[pad]", "[bos]", "[eos]", "[unk]"]
 
-
 modules:
-  model_x_to_z: ???
-  model_z_to_x: ???
-  disc_x: ???
-  disc_z: ???
+  model_x_to_z: ${model.sequence_to_sequence_model}
+  model_z_to_x: ${model.sequence_to_sequence_model}
+  disc_x: ${model.discretizer}
+  disc_z: ${model.discretizer}
 
 model_params:
   max_x_length: 100
@@ -32,8 +25,6 @@ model_params:
   decode_after_autoreg_step: True
   tokenize_prior_training: True
 
-  num_bootstrap_tests: 10
-
   loss_coeff:
     xzx: 1.0
     zxz: 1.0
@@ -41,7 +32,7 @@ model_params:
     supervised_seperated_z: 1.0
   
   acc_grad_batch: 1
-
+  num_bootstrap_tests: 10
   use_tokenizer_vocab_len: true
   disc_x_vocab_size: -1
   disc_z_vocab_size: -1

@@ -1,24 +1,21 @@
-gpt2_gpt2:
-  _target_: src.models.modules.sequence_to_sequence_models.encoder_decoder.EncoderDecoder
+_target_: src.models.modules.sequence_to_sequence_models.encoder_decoder.EncoderDecoder
+key: gpt2_gpt2
+config_encoder:
+  _target_: transformers.GPT2Config
+  # Maximum sequence length that this model might ever be used with
+  vocab_size: 20
+  n_embd: 128
+  n_positions: ${model.model_params.max_x_length}
+  n_layer: 2
+  n_head: 4
+  activation_function: 'gelu_new'
 
-  config_encoder:
-    _target_: transformers.GPT2Config
-    # Maximum sequence length that this model might ever be used with
-
-    vocab_size: 20
-    n_embd: 128
-    n_positions: ${model.model_params.max_x_length}
-    n_layer: 2
-    n_head: 4
-    activation_function: 'gelu_new'
-    
-
-  config_decoder:
-    _target_: transformers.GPT2Config
-    
-    vocab_size: 20
-    n_embd: 128
-    n_positions: ${model.model_params.max_z_length}
-    n_layer: 2
-    n_head: 4
-    activation_function: 'gelu_new'
+config_decoder:
+  _target_: transformers.GPT2Config
+  # Maximum sequence length that this model might ever be used with
+  vocab_size: 20
+  n_embd: 128
+  n_positions: ${model.model_params.max_z_length}
+  n_layer: 2
+  n_head: 4
+  activation_function: 'gelu_new'

@@ -1,12 +1,12 @@
 # @package _global_
 
 defaults:
-  - override /datamodule: scan.yaml
+  - override /datamodule: sfst.yaml
   - override /model: load_from_pretrained.yaml
 
 # name of the run determines folder name in logs
-name: "scan_symae"
-run_name: "supervised-weak-0.02-pretrained-gumbel" 
+name: "sfst_sigmae"
+run_name: "curriculum-${datamodule.dataset_parameters.supervision_ratio}-${model.sequence_to_sequence_model.key}-${model.discretizer.key}" 
 
 track_gradients: Yes
 overfit_batch: 0
@@ -19,8 +19,17 @@ trainer:
 datamodule:
   dataset_parameters:
     supervision_ratio: [0.02, 0.9] # [r(xz), r(z|not xz)]
-    batch_size: 64
-    num_workers: 48
+    batch_size: 128
+    num_workers: 8
+
+    # SFST specific parameters
+    latent_vocab_size: 10
+    maximum_input_alphabet_delta: 1
+    p_empty_emission: 0.3
+    dataset_size: 20000
+    node_size: 100
+    max_length: 50
+    output_alphabet_size: 10
 
 callbacks:
   supervision_scheduler:
@@ -36,19 +45,23 @@ callbacks:
       hp_init: 1.0
       hp_end: 0.7
 
-
 model:
-  checkpoint_path: '/dlabdata1/masani/blocks/logs/training/runs/supervised-only-0.02-gumbel/2023-09-20_19-38-25/checkpoints/last.ckpt'
+  checkpoint_path: ???
   substitute_config:
     model_params:
+      acc_grad_batch: 1
+      num_bootstrap_tests: 10
+      
+      max_x_length: 20
+      max_x_vocab_size: 25
+      max_z_length: 60
+      max_z_vocab_size: 25
       loss_coeff:
         # turn them to -1 to disable that loss, (in training, not in validation)
         xzx: 1.0
         zxz: 1.0
         supervised_seperated_x: 1.0
         supervised_seperated_z: 1.0
-    
-      acc_grad_batch: 16
 
     optimizer:
       lr: 0.001
@@ -63,4 +76,23 @@ model:
       min_lr: 1e-6
       eps: 1e-8
       verbose: True
+
+callbacks:
+  supervision_scheduler:
+    scheduler_xz:
+      num_warmup_steps: 1
+      num_training_steps: 100
+      hp_init: 1.0
+      hp_end: 0.5
+    scheduler_z:
+      # between 0 and 1, saying given that a sample is not xz, how likely is it to be z.
+      num_warmup_steps: 50
+      num_training_steps: 150
+      hp_init: 1.0
+      hp_end: 0.5
+
+logger:
+  wandb:
+    tags: ["supervised-training"]
+    notes:
 
