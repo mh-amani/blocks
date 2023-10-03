@@ -2,7 +2,6 @@ from typing import List, Optional
 
 import hydra
 import os
-import omegaconf
 from omegaconf import DictConfig
 import omegaconf
 from pytorch_lightning import Callback, LightningDataModule, LightningModule, Trainer, seed_everything
@@ -80,7 +79,7 @@ def train(config: DictConfig) -> Optional[float]:
     # Send some parameters from configs to all lightning loggers
     log.info("Logging hyperparameters!")
     utils.log_hyperparameters(
-        config=OmegaConf.to_container(config),
+        config=config,
         model=model,
         datamodule=datamodule,
         trainer=trainer,

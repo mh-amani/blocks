@@ -6,7 +6,10 @@ defaults:
 
 # name of the run determines folder name in logs
 name: "scan_sigmae"
-run_name: "curriculum-${datamodule.dataset_parameters.supervision_ratio}-${model.sequence_to_sequence_model.key}-${model.discretizer.key}" 
+run_name: "curriculum-${datamodule.dataset_parameters.supervision_ratio}-${sequence_to_sequence_model_key}-${discretizer_key}" 
+
+sequence_to_sequence_model_key: ???
+discretizer_key: ???
 
 track_gradients: Yes
 overfit_batch: 0
