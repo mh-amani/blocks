@@ -32,10 +32,12 @@ class XZAutoencoder(LightningModule):
         self.decode_after_autoreg_step = self.hparams.model_params.decode_after_autoreg_step
 
         # the encoder and decoder
-        self.model_x_to_z = hydra.utils.instantiate(self.hparams.modules.model_x_to_z,
-                                                     special_tokens_ids=self.special_tokens_ids, _recursive_ = False)
+        self.model_x_to_z = hydra.utils.instantiate(self.hparams.modules.model_x_to_z, 
+                                                    **self.hparams.modules.config_x_to_z,
+                                                    special_tokens_ids=self.special_tokens_ids, _recursive_ = False)
         self.model_z_to_x = hydra.utils.instantiate(self.hparams.modules.model_z_to_x, 
-                                                     special_tokens_ids=self.special_tokens_ids, _recursive_ = False)
+                                                    **self.hparams.modules.config_z_to_x,
+                                                    special_tokens_ids=self.special_tokens_ids, _recursive_ = False)
         
         # loss function coefficients
         self.loss_coeff = self.hparams.model_params.loss_coeff

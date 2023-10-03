@@ -1,0 +1,44 @@
+# @package _global_
+
+# +experiment/inference=scan
+
+defaults:
+  - override /datamodule: ???
+  - override /model: load_from_pretrained.yaml
+
+# name of the run determines folder name in logs
+name: "${datamodule.key}_sigmae"
+run_name: "inference-${datamodule.dataset_parameters.supervision_ratio}-${training_type}-${sequence_to_sequence_model_key}-${discretizer_key}" 
+
+training_type: ??? #suponly, curriculum, ....
+sequence_to_sequence_model_key: ???
+discretizer_key: ???
+
+track_gradients: Yes
+overfit_batch: 0
+
+trainer:
+  devices: [0] # 'auto', or numbers like 2, [0]
+  accelerator: 'gpu' #cpu, tpu, (devices=4, accelerator="gpu", strategy="ddp"), (devices="auto", accelerator="auto")  
+
+datamodule:
+  dataset_parameters:
+    supervision_ratio: [0.02, 0.9] # [r(xz), r(z|not xz)]
+    batch_size: 128
+    num_workers: 8
+
+model:
+  checkpoint_path: ???
+  substitute_config:
+    model_params:
+      num_bootstrap_tests: 10    
+      max_x_length: 20
+      max_x_vocab_size: 25
+      max_z_length: 60
+      max_z_vocab_size: 25
+  
+      
+logger:
+  wandb:
+    tags: ["supervised-training"]
+    notes:

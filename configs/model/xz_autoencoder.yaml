@@ -12,10 +12,51 @@ defaults:
 special_tokens: ["[pad]", "[bos]", "[eos]", "[unk]"]
 
 modules:
-  model_x_to_z: ${model.sequence_to_sequence_model}
-  model_z_to_x: ${model.sequence_to_sequence_model}
   disc_x: ${model.discretizer}
   disc_z: ${model.discretizer}
+  model_x_to_z: ${model.sequence_to_sequence_model}
+  config_x_to_z:
+    config_encoder:
+      _target_: transformers.GPT2Config
+      # Maximum sequence length that this model might ever be used with
+      vocab_size: 20
+      n_embd: 128
+      n_positions: ${model.model_params.max_x_length}
+      n_layer: 2
+      n_head: 4
+      activation_function: 'gelu_new'
+
+    config_decoder:
+      _target_: transformers.GPT2Config
+      # Maximum sequence length that this model might ever be used with
+      vocab_size: 20
+      n_embd: 128
+      n_positions: ${model.model_params.max_z_length}
+      n_layer: 2
+      n_head: 4
+      activation_function: 'gelu_new'
+  
+  model_z_to_x: ${model.sequence_to_sequence_model}
+  config_z_to_x:
+    config_encoder:
+      _target_: transformers.GPT2Config
+      # Maximum sequence length that this model might ever be used with
+      vocab_size: 20
+      n_embd: 128
+      n_positions: ${model.model_params.max_z_length}
+      n_layer: 2
+      n_head: 4
+      activation_function: 'gelu_new'
+
+    config_decoder:
+      _target_: transformers.GPT2Config
+      # Maximum sequence length that this model might ever be used with
+      vocab_size: 20
+      n_embd: 128
+      n_positions: ${model.model_params.max_x_length}
+      n_layer: 2
+      n_head: 4
+      activation_function: 'gelu_new'
 
 model_params:
   max_x_length: 100
