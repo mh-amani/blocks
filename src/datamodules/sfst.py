@@ -114,7 +114,7 @@ class SFSTDataset(AbstractDataset):
             return {'train': SFSTDataset._create_dataset(train_inputs, train_outputs), 'test': SFSTDataset._create_dataset(test_inputs, test_outputs)}
 
     def _create_dataset(inputs, outputs):
-        return HFDataset.from_dict({'X': inputs, 'Z': outputs})
+        return HFDataset.from_dict({'X': outputs, 'Z': inputs})
     
     def generate_FST(self, node_size, output_alphabet_size=8, maximum_input_alphabet_delta=-1, p_empty_emission=0.5):
         while True:
