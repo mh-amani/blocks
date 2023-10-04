@@ -25,38 +25,74 @@
 # --------------------------------------------------------------------------------------------------- #
 # ----------------------------------------------- SCAN ---------------------------------------------- #
 # supervised:
-python3 run_train.py +experiment=scan_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.01,0.9] model/discretizer=gumbel trainer.devices=[1] datamodule.dataset_parameters.train_ratio=0.99 +test=True || true
-python3 run_train.py +experiment=scan_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.02,0.9] model/discretizer=gumbel trainer.devices=[1] datamodule.dataset_parameters.train_ratio=0.99 +test=True || true
-python3 run_train.py +experiment=scan_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.04,0.9] model/discretizer=gumbel trainer.devices=[1] datamodule.dataset_parameters.train_ratio=0.99 +test=True || true
-python3 run_train.py +experiment=scan_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.08,0.9] model/discretizer=gumbel trainer.devices=[1] datamodule.dataset_parameters.train_ratio=0.99 +test=True || true
-python3 run_train.py +experiment=scan_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.16,0.9] model/discretizer=gumbel trainer.devices=[1] datamodule.dataset_parameters.train_ratio=0.99 +test=True || true
-python3 run_train.py +experiment=scan_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.32,0.9] model/discretizer=gumbel trainer.devices=[1] datamodule.dataset_parameters.train_ratio=0.99 +test=True || true
+# python3 run_train.py +experiment=scan_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.01,0.9] model/discretizer=gumbel trainer.devices=[0] +test=True || true
+# python3 run_train.py +experiment=scan_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.02,0.9] model/discretizer=gumbel trainer.devices=[0] +test=True || true
+# python3 run_train.py +experiment=scan_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.04,0.9] model/discretizer=gumbel trainer.devices=[0] +test=True || true
+# python3 run_train.py +experiment=scan_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.08,0.9] model/discretizer=gumbel trainer.devices=[0] +test=True || true
+# python3 run_train.py +experiment=scan_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.16,0.9] model/discretizer=gumbel trainer.devices=[0] +test=True || true
+# python3 run_train.py +experiment=scan_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.32,0.9] model/discretizer=gumbel trainer.devices=[0] +test=True || true
 
 # weakly supervised:
-python3 run_train.py +experiment=scan_curriculum.yaml datamodule.dataset_parameters.supervision_ratio=[0.01,0.9] trainer.devices=[1] datamodule.dataset_parameters.batch_size=256 sequence_to_sequence_model_key=gpt2_gpt2 discretizer_key=gumbel model.checkpoint_path=\'/home/masani/blocks/logs/training/runs/scan/suponly-\[0.01,\ 0.9\]-gpt2_gpt2-gumbel/2023-10-03_10-18-00/checkpoints/last.ckpt\' +test=True || true
+python3 run_train.py +experiment=scan_curriculum.yaml datamodule.dataset_parameters.supervision_ratio=[0.01,0.9] trainer.devices=[0] datamodule.dataset_parameters.batch_size=256 sequence_to_sequence_model_key=gpt2_gpt2 discretizer_key=gumbel model.checkpoint_path=\'/dlabdata1/masani/blocks/logs/training/runs/scan/suponly-\[0.01,\ 0.9\]-gpt2_gpt2-gumbel/2023-10-03_17-32-17/checkpoints/last.ckpt\' +test=True || true
+python3 run_train.py +experiment=scan_curriculum.yaml datamodule.dataset_parameters.supervision_ratio=[0.02,0.9] trainer.devices=[0] datamodule.dataset_parameters.batch_size=256 sequence_to_sequence_model_key=gpt2_gpt2 discretizer_key=gumbel model.checkpoint_path=\'/dlabdata1/masani/blocks/logs/training/runs/scan/suponly-\[0.02,\ 0.9\]-gpt2_gpt2-gumbel/2023-10-03_18-54-07/checkpoints/last.ckpt\' +test=True || true
+python3 run_train.py +experiment=scan_curriculum.yaml datamodule.dataset_parameters.supervision_ratio=[0.04,0.9] trainer.devices=[0] datamodule.dataset_parameters.batch_size=256 sequence_to_sequence_model_key=gpt2_gpt2 discretizer_key=gumbel model.checkpoint_path=\'/dlabdata1/masani/blocks/logs/training/runs/scan/suponly-\[0.04,\ 0.9\]-gpt2_gpt2-gumbel/2023-10-03_20-31-35/checkpoints/last.ckpt\' +test=True || true
+python3 run_train.py +experiment=scan_curriculum.yaml datamodule.dataset_parameters.supervision_ratio=[0.08,0.9] trainer.devices=[0] datamodule.dataset_parameters.batch_size=256 sequence_to_sequence_model_key=gpt2_gpt2 discretizer_key=gumbel model.checkpoint_path=\'/dlabdata1/masani/blocks/logs/training/runs/scan/suponly-\[0.08,\ 0.9\]-gpt2_gpt2-gumbel/2023-10-03_21-33-06/checkpoints/last.ckpt\' +test=True || true
+python3 run_train.py +experiment=scan_curriculum.yaml datamodule.dataset_parameters.supervision_ratio=[0.16,0.9] trainer.devices=[0] datamodule.dataset_parameters.batch_size=256 sequence_to_sequence_model_key=gpt2_gpt2 discretizer_key=gumbel model.checkpoint_path=\'/dlabdata1/masani/blocks/logs/training/runs/scan/suponly-\[0.16,\ 0.9\]-gpt2_gpt2-gumbel/2023-10-03_22-08-55/checkpoints/last.ckpt\' +test=True || true
+python3 run_train.py +experiment=scan_curriculum.yaml datamodule.dataset_parameters.supervision_ratio=[0.32,0.9] trainer.devices=[0] datamodule.dataset_parameters.batch_size=256 sequence_to_sequence_model_key=gpt2_gpt2 discretizer_key=gumbel model.checkpoint_path=\'/dlabdata1/masani/blocks/logs/training/runs/scan/suponly-\[0.32,\ 0.9\]-gpt2_gpt2-gumbel/2023-10-03_22-44-20/checkpoints/last.ckpt\' +test=True || true
+
+# testing
+# python3 run_inference.py +experiment/inference=inference datamodule=scan datamodule.dataset_parameters.supervision_ratio=[0.01,0.9] trainer.devices=[1] training_type=suponly sequence_to_sequence_model_key=gpt2_gpt2 discretizer_key=gumbel model.checkpoint_path=\'/dlabdata1/masani/blocks/logs/training/runs/scan/suponly-\[0.01,\ 0.9\]-gpt2_gpt2-gumbel/2023-10-03_11-48-13/checkpoints/last.ckpt\' || true
+# python3 run_inference.py +experiment/inference=inference datamodule=scan datamodule.dataset_parameters.supervision_ratio=[0.01,0.9] trainer.devices=[1] training_type=suponly sequence_to_sequence_model_key=gpt2_gpt2 discretizer_key=gumbel model.checkpoint_path=\'/dlabdata1/masani/blocks/logs/training/runs/scan/suponly-\[0.01,\ 0.9\]-gpt2_gpt2-gumbel/2023-10-03_11-48-13/checkpoints/model-4488-3.0010.ckpt\' || true
+# python3 run_inference.py +experiment/inference=inference datamodule=scan datamodule.dataset_parameters.supervision_ratio=[0.02,0.9] trainer.devices=[1] training_type=suponly sequence_to_sequence_model_key=gpt2_gpt2 discretizer_key=gumbel model.checkpoint_path=\'/dlabdata1/masani/blocks/logs/training/runs/scan/suponly-\[0.01,\ 0.9\]-gpt2_gpt2-gumbel/2023-10-03_11-48-13/checkpoints/last.ckpt\' || true
+# python3 run_inference.py +experiment/inference=inference datamodule=scan datamodule.dataset_parameters.supervision_ratio=[0.04,0.9] trainer.devices=[1] training_type=suponly sequence_to_sequence_model_key=gpt2_gpt2 discretizer_key=gumbel model.checkpoint_path=\'/dlabdata1/masani/blocks/logs/training/runs/scan/suponly-\[0.01,\ 0.9\]-gpt2_gpt2-gumbel/2023-10-03_11-48-13/checkpoints/last.ckpt\' || true
+# python3 run_inference.py +experiment/inference=inference datamodule=scan datamodule.dataset_parameters.supervision_ratio=[0.08,0.9] trainer.devices=[1] training_type=suponly sequence_to_sequence_model_key=gpt2_gpt2 discretizer_key=gumbel model.checkpoint_path=\'/dlabdata1/masani/blocks/logs/training/runs/scan/suponly-\[0.01,\ 0.9\]-gpt2_gpt2-gumbel/2023-10-03_11-48-13/checkpoints/last.ckpt\' || true
+# python3 run_inference.py +experiment/inference=inference datamodule=scan datamodule.dataset_parameters.supervision_ratio=[0.16,0.9] trainer.devices=[1] training_type=suponly sequence_to_sequence_model_key=gpt2_gpt2 discretizer_key=gumbel model.checkpoint_path=\'/dlabdata1/masani/blocks/logs/training/runs/scan/suponly-\[0.01,\ 0.9\]-gpt2_gpt2-gumbel/2023-10-03_11-48-13/checkpoints/last.ckpt\' || true
+# python3 run_inference.py +experiment/inference=inference datamodule=scan datamodule.dataset_parameters.supervision_ratio=[0.32,0.9] trainer.devices=[1] training_type=suponly sequence_to_sequence_model_key=gpt2_gpt2 discretizer_key=gumbel model.checkpoint_path=\'/dlabdata1/masani/blocks/logs/training/runs/scan/suponly-\[0.01,\ 0.9\]-gpt2_gpt2-gumbel/2023-10-03_11-48-13/checkpoints/last.ckpt\' || true
 
 
-
-testing
-python3 run_inference.py +experiment/inference=scan_gpt2-gpt2_gumbel datamodule.dataset_parameters.supervision_ratio=\[0.2,\ 0.9\] trainer.devices='[1]' model.checkpoint_path=\'/home/masani/blocks/logs/training/runs/supervised-only-\[0.2,\ 0.9\]-gumbel/2023-09-28_10-21-52/checkpoints/last.ckpt\'
 
 
 # --------------------------------------------------------------------------------------------------- #
 # --------------------------------------------------------------------------------------------------- #
 # ----------------------------------------------- sfst ---------------------------------------------- #
-# supervised:
-# python3 run_train.py +experiment=sfst_gpt2-gpt2_gumbel_supervised.yaml datamodule.dataset_parameters.supervision_ratio="[0.05, 0.9]" trainer.devices=[0] logger.wandb.tags=["supervised-training"] +test=True || true
-# python3 run_train.py +experiment=sfst_gpt2-gpt2_gumbel_supervised.yaml datamodule.dataset_parameters.supervision_ratio="[0.1, 0.9]" trainer.devices=[0] logger.wandb.tags=["supervised-training"] +test=True || true
-# python3 run_train.py +experiment=sfst_gpt2-gpt2_gumbel_supervised.yaml datamodule.dataset_parameters.supervision_ratio="[0.2, 0.9]" trainer.devices=[0] logger.wandb.tags=["supervised-training"] +test=True || true
-# python3 run_train.py +experiment=sfst_gpt2-gpt2_gumbel_supervised.yaml datamodule.dataset_parameters.supervision_ratio="[0.3, 0.9]" trainer.devices=[0] logger.wandb.tags=["supervised-training"] +test=True || true
-# python3 run_train.py +experiment=sfst_gpt2-gpt2_gumbel_supervised.yaml datamodule.dataset_parameters.supervision_ratio="[0.4, 0.9]" trainer.devices=[0] logger.wandb.tags=["supervised-training"] +test=True || true
-# python3 run_train.py +experiment=sfst_gpt2-gpt2_gumbel_supervised.yaml datamodule.dataset_parameters.supervision_ratio="[0.5, 0.9]" trainer.devices=[0] logger.wandb.tags=["supervised-training"] +test=True || true
+# # supervised:
+# python3 run_train.py +experiment=sfst_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.01,0.9] model/discretizer=gumbel trainer.devices=[0] model.optimizer.lr=0.005 +test=True || true
+# python3 run_train.py +experiment=sfst_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.02,0.9] model/discretizer=gumbel trainer.devices=[0] model.optimizer.lr=0.005 +test=True || true
+# python3 run_train.py +experiment=sfst_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.04,0.9] model/discretizer=gumbel trainer.devices=[0] model.optimizer.lr=0.005 +test=True || true
+# python3 run_train.py +experiment=sfst_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.08,0.9] model/discretizer=gumbel trainer.devices=[0] model.optimizer.lr=0.005 +test=True || true
+# python3 run_train.py +experiment=sfst_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.16,0.9] model/discretizer=gumbel trainer.devices=[0] model.optimizer.lr=0.005 +test=True || true
+# python3 run_train.py +experiment=sfst_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.32,0.9] model/discretizer=gumbel trainer.devices=[0] model.optimizer.lr=0.005 +test=True || true
 
 
-# weakly supervised:
+# # weakly supervised:
 # python3 run_train.py +experiment=sfst_pretrained_weaksup.yaml run_name="supervised-curriculum-0.1-gumbel" datamodule.dataset_parameters.supervision_ratio="[0.1, 0.9]" trainer.devices=[1] model.substitute_config.optimizer.lr=0.001 model.substitute_config.model_params.acc_grad_batch=1 datamodule.dataset_parameters.batch_size=128 +model.substitute_config.model_params.max_x_length=60 +model.substitute_config.model_params.max_z_length=60 model.checkpoint_path="/home/masani/blocks/logs/training/runs/supervised-only-0.1-gumbel/2023-09-23_22-17-03/checkpoints/last.ckpt" callbacks.supervision_scheduler.scheduler_xz.hp_init=1.0 callbacks.supervision_scheduler.scheduler_xz.hp_end=0.7 callbacks.supervision_scheduler.scheduler_z.hp_init=1.0 callbacks.supervision_scheduler.scheduler_z.hp_end=0.7 logger.wandb.tags=["weakly-supervised"] 
 # python3 run_train.py +experiment=sfst_pretrained_weaksup.yaml run_name="supervised-curriculum-0.15-gumbel" datamodule.dataset_parameters.supervision_ratio="[0.15, 0.9]" trainer.devices=[1] model.substitute_config.optimizer.lr=0.001 model.substitute_config.model_params.acc_grad_batch=1 datamodule.dataset_parameters.batch_size=128 +model.substitute_config.model_params.max_x_length=60 +model.substitute_config.model_params.max_z_length=60 model.checkpoint_path="/home/masani/blocks/logs/training/runs/supervised-only-0.15-gumbel/2023-09-23_23-34-47/checkpoints/last.ckpt" callbacks.supervision_scheduler.scheduler_xz.hp_init=1.0 callbacks.supervision_scheduler.scheduler_xz.hp_end=0.7 callbacks.supervision_scheduler.scheduler_z.hp_init=1.0 callbacks.supervision_scheduler.scheduler_z.hp_end=0.7 logger.wandb.tags=["weakly-supervised"]
 # python3 run_train.py +experiment=sfst_pretrained_weaksup.yaml run_name="supervised-curriculum-0.25-gumbel" datamodule.dataset_parameters.supervision_ratio="[0.25, 0.9]" trainer.devices=[1] model.substitute_config.optimizer.lr=0.001 model.substitute_config.model_params.acc_grad_batch=1 datamodule.dataset_parameters.batch_size=128 +model.substitute_config.model_params.max_x_length=60 +model.substitute_config.model_params.max_z_length=60 model.checkpoint_path="/home/masani/blocks/logs/training/runs/supervised-only-0.25-gumbel/2023-09-24_12-09-41/checkpoints/last.ckpt" callbacks.supervision_scheduler.scheduler_xz.hp_init=1.0 callbacks.supervision_scheduler.scheduler_xz.hp_end=0.7 callbacks.supervision_scheduler.scheduler_z.hp_init=1.0 callbacks.supervision_scheduler.scheduler_z.hp_end=0.7 logger.wandb.tags=["weakly-supervised"]  
+
+# # testing
+# python3 run_inference.py +experiment/inference=scan_gpt2-gpt2_gumbel
+
+# --------------------------------------------------------------------------------------------------- #
+# --------------------------------------------------------------------------------------------------- #
+# --------------------------------------------- PCFG Set -------------------------------------------- #
+# supervised:
+# python3 run_train.py +experiment=scan_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.01,0.9] model/discretizer=gumbel trainer.devices=[0] +test=True || true
+# python3 run_train.py +experiment=scan_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.02,0.9] model/discretizer=gumbel trainer.devices=[0] +test=True || true
+# python3 run_train.py +experiment=scan_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.04,0.9] model/discretizer=gumbel trainer.devices=[0] +test=True || true
+# python3 run_train.py +experiment=scan_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.08,0.9] model/discretizer=gumbel trainer.devices=[0] +test=True || true
+# python3 run_train.py +experiment=scan_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.16,0.9] model/discretizer=gumbel trainer.devices=[0] +test=True || true
+# python3 run_train.py +experiment=scan_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.32,0.9] model/discretizer=gumbel trainer.devices=[0] +test=True || true
+
+# weakly supervised:
+# python3 run_train.py +experiment=s
+
+
+
+
+
+
+
+
 # --------------------------------------------------------------------------------------------------- #
 # --------------------------------------------------------------------------------------------------- #
 # --------------------------------------------- PCFG Set -------------------------------------------- #
