@@ -2,6 +2,7 @@
 _target_: src.datamodules.pcfg_set.PCFGSetDatamodule
 dataset_target_: src.datamodules.pcfg_set.PCFGSetDataset
 seed: 42
+key: pcfg_set
 tokenize_in_dataset: True
 data_type_sampling_probability: 
   - ${callbacks.supervision_scheduler.scheduler_xz.hp_init}
@@ -9,7 +10,6 @@ data_type_sampling_probability:
 
 experiment: "systematicity" # "systematicity", "substitutivity", "productivity", "localism", "overgeneralization", "pcfgset"
 
-# path_header: "/home/mila/s/sayed.mansouri-tehrani/blocks" # "./"
 path_header: ${work_dir}
 
 experiment_paths:
@@ -42,8 +42,6 @@ experiment_paths:
       src_path: "${datamodule.path_header}/data/pcfgset/substitutivity/equally_distributed/test.src"
       tgt_path: "${datamodule.path_header}/data/pcfgset/substitutivity/equally_distributed/test.tgt"
 
-
-
 dataset_parameters:
   seed: ${seed}
   batch_size: 128
@@ -59,7 +57,6 @@ dataset_parameters:
     src_path: ${datamodule.experiment_paths[${datamodule.experiment}].test.src_path}
     tgt_path: ${datamodule.experiment_paths[${datamodule.experiment}].test.tgt_path}
   
-
 datasets:
   seed: ${seed}
   test:

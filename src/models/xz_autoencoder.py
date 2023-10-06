@@ -80,9 +80,10 @@ class XZAutoencoder(LightningModule):
         
 
     def setup(self, stage: str) -> None:
-        if self.hparams['collator']['tokenize_prior_training'] and self.pretokenized_flag==0:
-            self.collator.pre_tokenize(self.trainer.datamodule.data_train)
-            self.pretokenized_flag = 1
+        pass
+        # if self.hparams['collator']['tokenize_prior_training'] and self.pretokenized_flag==0:
+        #     self.collator.pre_tokenize(self.trainer.datamodule.data_train)
+        #     self.pretokenized_flag = 1
 
     def one_step_sequential_forward(self, model, discretizer, input_embeds, input_attention_mask, 
                                     output_embeds, output_attention_mask=None, past_key_values=None):

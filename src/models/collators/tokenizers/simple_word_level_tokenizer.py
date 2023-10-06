@@ -22,7 +22,8 @@ def SimpleWordLevelTokenizer(dataset, **kwargs):
     
     return tokenizer
 
-def SimpleUnigramTokenizer(dataset, key, **kwargs):
+def SimpleUnigramTokenizer(dataset, **kwargs):
+    key = kwargs['key']
     tokenizer = Tokenizer(models.BPE(unk_token="[unk]"))
     tokenizer.pre_tokenizer = pre_tokenizers.Whitespace()
     

@@ -2,6 +2,7 @@
 _target_: src.datamodules.cogs.COGSDatamodule
 dataset_target_: src.datamodules.cogs.COGSDataset
 seed: 42
+key: cogs
 tokenize_in_dataset: True
 data_type_sampling_probability: 
   - ${callbacks.supervision_scheduler.scheduler_xz.hp_init}

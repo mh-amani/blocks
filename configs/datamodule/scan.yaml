@@ -16,7 +16,8 @@ dataset_parameters:
   supervision_ratio: [0.05, 0.5] # [r(xz), r(z|not xz)]
   num_workers: 8
   overfit_batch: ${overfit_batch}
-  
+  max_x_length: ${model.model_params.max_x_length}
+  max_z_length: ${model.model_params.max_z_length}
 
 datasets:
   seed: ${seed}

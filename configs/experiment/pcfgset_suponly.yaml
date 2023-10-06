@@ -32,10 +32,10 @@ model:
     acc_grad_batch: 1
     num_bootstrap_tests: 10
 
-    max_x_length: 20
-    max_x_vocab_size: 25
-    max_z_length: 60
-    max_z_vocab_size: 25
+    max_x_length: 100 # 158 is the max length of a sentence in the dataset i think, but only 0.006 larger than 100
+    max_x_vocab_size: 100
+    max_z_length: 100 # 2020 is the max length of a sentence in the dataset i think, but only 0.008 larger than 100
+    max_z_vocab_size: 100
     loss_coeff:
       # turn them to -1 to disable that loss, (in training, not in validation)
       xzx: 1.0
@@ -44,7 +44,7 @@ model:
       supervised_seperated_z: 1.0
   
   optimizer:
-    lr: 0.003
+    lr: 0.005
 
   lr_scheduler:
     mode: "min"
@@ -56,10 +56,6 @@ model:
     min_lr: 1e-6
     eps: 1e-8
     verbose: True
-
-  collator:
-    tokenizer:
-      vocab_size: 1000
 
 callbacks:
   supervision_scheduler:

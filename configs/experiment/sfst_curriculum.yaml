@@ -6,7 +6,10 @@ defaults:
 
 # name of the run determines folder name in logs
 name: "sfst_sigmae"
-run_name: "curriculum-${datamodule.dataset_parameters.supervision_ratio}-${model.sequence_to_sequence_model.key}-${model.discretizer.key}" 
+run_name: "curriculum-${datamodule.dataset_parameters.supervision_ratio}-${sequence_to_sequence_model_key}-${discretizer_key}" 
+
+sequence_to_sequence_model_key: ???
+discretizer_key: ???
 
 track_gradients: Yes
 overfit_batch: 0
@@ -23,27 +26,12 @@ datamodule:
     num_workers: 8
 
     # SFST specific parameters
-    latent_vocab_size: 10
     maximum_input_alphabet_delta: 1
-    p_empty_emission: 0.3
+    p_empty_emission: 0.2
     dataset_size: 20000
-    node_size: 100
+    node_size: 10
     max_length: 50
-    output_alphabet_size: 10
-
-callbacks:
-  supervision_scheduler:
-    scheduler_xz:
-      num_warmup_steps: 1
-      num_training_steps: 100
-      hp_init: 1.0
-      hp_end: 0.7
-    scheduler_z:
-      # between 0 and 1, saying given that a sample is not xz, how likely is it to be z.
-      num_warmup_steps: 30
-      num_training_steps: 100
-      hp_init: 1.0
-      hp_end: 0.7
+    output_alphabet_size: 7
 
 model:
   checkpoint_path: ???
@@ -52,10 +40,10 @@ model:
       acc_grad_batch: 1
       num_bootstrap_tests: 10
       
-      max_x_length: 20
-      max_x_vocab_size: 25
-      max_z_length: 60
-      max_z_vocab_size: 25
+      max_x_length: ${add_int:${datamodule.dataset_parameters.max_length}, 3}
+      max_x_vocab_size: ${add_int:${datamodule.dataset_parameters.max_length}, 4}
+      max_z_length: ${add_int:${datamodule.dataset_parameters.max_length}, 3}
+      max_z_vocab_size: ${add_int:${datamodule.dataset_parameters.max_length}, 4}
       loss_coeff:
         # turn them to -1 to disable that loss, (in training, not in validation)
         xzx: 1.0
