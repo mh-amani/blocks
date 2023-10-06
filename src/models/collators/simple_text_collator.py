@@ -28,18 +28,22 @@ class SimpleTextCollator:
         self.tokenizer_z = hydra.utils.instantiate(kwargs['tokenizer_z'], dataset=data_train, special_tokens=special_tokens, **kwargs['tokenizer_z_params'] , _recursive_=False)
 
     
-    def pre_tokenize(self, data_train):
-        self.x_ids = [
-            [self.bos_token_id] + self.tokenizer_x.encode(sample['x']).ids + [self.eos_token_id]
-            for sample in data_train
-        ]
-        self.z_ids = [
-            [self.bos_token_id] + self.tokenizer_z.encode(sample['z']).ids + [self.eos_token_id]
-            for sample in data_train
-        ]
+    # def pre_tokenize(self, data_train):
+    #     self.x_ids = [
+    #         [self.bos_token_id] + self.tokenizer_x.encode(sample['x']).ids + [self.eos_token_id]
+    #         for sample in data_train]
+    #     self.z_ids = [
+    #         [self.bos_token_id] + self.tokenizer_z.encode(sample['z']).ids + [self.eos_token_id]
+    #         for sample in data_train]
+        
+    #     len_x = [len(x) for x in self.x_ids]
+    #     len_z = [len(z) for z in self.z_ids]
+
+    #     print(f"dataset max x length, before drop: {max(len_x)}")
+    #     print(f"dataset max z length, before drop: {max(len_z)}")
 
 
-    def collate_fn(self, batch: Iterable[dict]):
+    def collate_fn(self, batch: Iterable[dict], cut_to_max_length: bool = True):
         """
         A model specific collate function that will be passed to the datamodule i.e. the dataloaders.
 
@@ -59,18 +63,20 @@ class SimpleTextCollator:
         key = "id"
         collated_batch["id"] = np.array([sample[key] for sample in batch], dtype=np.int_)
 
-        if self.tokenize_prior_training:
-            x_ids = [self.x_ids[i] for i in collated_batch["id"]]
-            z_ids = [self.z_ids[i] for i in collated_batch["id"]]
-        else:
-            x_ids = [ [self.bos_token_id] + self.tokenizer_x.encode(sample['x']).ids + [self.eos_token_id] for sample in batch]
-            z_ids = [ [self.bos_token_id] + self.tokenizer_z.encode(sample['z']).ids + [self.eos_token_id] for sample in batch]
-        
-        if self.max_X_length is not None:
-            x_ids = [i[: self.max_X_length] for i in x_ids]
-        
-        if self.max_Z_length is not None:
-            z_ids = [i[: self.max_Z_length] for i in z_ids]
+        # if self.tokenize_prior_training:
+        #     x_ids = [self.x_ids[i] for i in collated_batch["id"]]
+        #     z_ids = [self.z_ids[i] for i in collated_batch["id"]]
+        # else:
+
+        x_ids = [ [self.bos_token_id] + self.tokenizer_x.encode(sample['x']).ids + [self.eos_token_id] for sample in batch]
+        z_ids = [ [self.bos_token_id] + self.tokenizer_z.encode(sample['z']).ids + [self.eos_token_id] for sample in batch]
+    
+        if cut_to_max_length:
+            if self.max_X_length is not None:
+                x_ids = [i[: self.max_X_length] for i in x_ids]
+            
+            if self.max_Z_length is not None:
+                z_ids = [i[: self.max_Z_length] for i in z_ids]
             
         if self.padding:
             x_ids = self.pad(x_ids)

@@ -2,6 +2,7 @@
 _target_: src.datamodules.cfq.CFQDatamodule
 dataset_target_: src.datamodules.cfq.CFQDataset
 seed: 42
+key: cfq
 tokenize_in_dataset: True
 data_type_sampling_probability: 
   - ${callbacks.supervision_scheduler.scheduler_xz.hp_init}
@@ -16,6 +17,8 @@ dataset_parameters:
   num_workers: 8
   overfit_batch: ${overfit_batch}
   tokenize_in_dataset: ${datamodule.tokenize_in_dataset}
+  max_x_length: ${model.model_params.max_x_length}
+  max_z_length: ${model.model_params.max_z_length}
   
 
 datasets:
