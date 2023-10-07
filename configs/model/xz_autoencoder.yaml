@@ -64,7 +64,6 @@ model_params:
   max_z_length: 100
   max_z_vocab_size: 200
   decode_after_autoreg_step: True
-  tokenize_prior_training: True
 
   loss_coeff:
     xzx: 1.0

@@ -150,7 +150,10 @@ class AbstractPLDataModule(LightningDataModule, ABC):
         # removing the data points with x or z length > max_X_length or max_Z_length after tokenization
         if self.dataset_parameters["remove_long_data_points"]:
             self.remove_long_data_points()
-
+        
+        if self.dataset_parameters.get('print_max_lengths', False):
+            self.print_max_lengths()
+            
     def remove_long_data_points(self):
         self.train_data = []
         counter = 0
@@ -190,6 +193,26 @@ class AbstractPLDataModule(LightningDataModule, ABC):
             self.test_data.append(data_i)
 
         self.data_test.datum['test'] = self.test_data
+    
+    def print_max_lengths(self):
+        max_x_length = 0
+        larger_than_max_x_length = 0
+        max_z_length = 0
+        larger_than_max_z_length = 0
+        for i in range(len(self.data_train)):
+            collated_batch = self.collate_fn([self.data_train[i]], cut_to_max_length=False)
+            if collated_batch['x_ids'].shape[1] > max_x_length:
+                max_x_length = collated_batch['x_ids'].shape[1]
+            if collated_batch['x_ids'].shape[1] > self.dataset_parameters["max_x_length"]:
+                larger_than_max_x_length += 1
+            if collated_batch['z_ids'].shape[1] > max_z_length:
+                max_z_length = collated_batch['z_ids'].shape[1]
+            if collated_batch['z_ids'].shape[1] > self.dataset_parameters["max_z_length"]:
+                larger_than_max_z_length += 1
+        print(f"max_x_length before cut-off: {max_x_length}, max_z_length before cut-off: {max_z_length}")
+        # percentage of data points that are cut-off
+        print(f"percentage of x data points that are cut-off: {larger_than_max_x_length/len(self.data_train)}")
+        print(f"percentage of z data points that are cut-off: {larger_than_max_z_length/len(self.data_train)}")
 
     def train_dataloader(self):
         g = torch.Generator()
