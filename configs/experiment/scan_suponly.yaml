@@ -26,6 +26,8 @@ datamodule:
     supervision_ratio: [0.2, 0.9] # [r(xz), r(z|not xz)]
     batch_size: 512
     num_workers: 8
+    remove_long_data_points: False
+
 
 model:
   model_params:
