@@ -19,7 +19,5 @@ tokenizer_z_params:
   batch_size: ${datamodule.dataset_parameters.batch_size}
   max_vocab_size: ${model.model_params.max_z_vocab_size}
 
-
-tokenize_prior_training: ${model.model_params.tokenize_prior_training}
 padding_side: 'right'
 padding: True       

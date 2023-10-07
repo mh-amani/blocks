@@ -23,6 +23,5 @@ tokenizer_z_params:
   checkpoint_path: ${model.checkpoint_path}
 
 
-tokenize_prior_training: ${model.model_params.tokenize_prior_training}
 padding_side: 'right'
 padding: True       

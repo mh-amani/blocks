@@ -5,7 +5,6 @@ defaults:
   - collator: loaded_collator
 
 model_params:
-    tokenize_prior_training: ${model.substitute_config.model_params.tokenize_prior_training}
     decode_after_autoreg_step: ${model.substitute_config.model_params.decode_after_autoreg_step}
     max_x_length: ${model.substitute_config.model_params.max_x_length}
     max_x_vocab_size: ${model.substitute_config.model_params.max_x_vocab_size}
@@ -16,7 +15,6 @@ substitute_config:
   collator: ${model.collator}
 
   model_params:
-    tokenize_prior_training: True
     decode_after_autoreg_step: True
     max_x_length: 100
     max_x_vocab_size: 200
