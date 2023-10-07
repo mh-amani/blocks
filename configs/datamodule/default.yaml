@@ -9,7 +9,9 @@ dataset_parameters:
   sup_ratio: 0.1
   num_workers: ???
   overfit_batch: ${overfit_batch}
-  
+  max_x_length: ${model.model_params.max_x_length}
+  max_z_length: ${model.model_params.max_z_length}
+  remove_long_data_points: True
   
 
 datasets:

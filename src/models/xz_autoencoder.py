@@ -203,11 +203,11 @@ class XZAutoencoder(LightningModule):
         z_attention_mask = torch.logical_not(torch.eq(z_ids, self.pad_token_id))
 
         out_z = self.model_x_to_z(inputs_embeds=x_embeds_enc, attention_mask=x_attention_mask,
-                                                        decoder_inputs_embeds=z_embeds_dec, decoder_attention_mask=z_attention_mask,
-                                                        output_hidden_states = True)['decoder_hidden_states'][-1]
+                                    decoder_inputs_embeds=z_embeds_dec, decoder_attention_mask=z_attention_mask,
+                                    output_hidden_states = True)['decoder_hidden_states'][-1]
         out_x = self.model_z_to_x(inputs_embeds=z_embeds_enc, attention_mask=z_attention_mask,
-                                                        decoder_inputs_embeds=x_embeds_dec, decoder_attention_mask=x_attention_mask,
-                                                        output_hidden_states = True)['decoder_hidden_states'][-1]
+                                    decoder_inputs_embeds=x_embeds_dec, decoder_attention_mask=x_attention_mask,
+                                    output_hidden_states = True)['decoder_hidden_states'][-1]
         
         x_hat_ids, x_hat_scores = self.disc_x(out_x).values()        
         z_hat_ids, z_hat_scores = self.disc_z(out_z).values()
@@ -308,7 +308,7 @@ class XZAutoencoder(LightningModule):
     def compute_accuracy_measures(self, batch, stage):
         assert np.all(batch['data_type']), "compute_accuracy_measures: data_type must be supervised"
         
-        _, _, outputs = self.forward(batch, stage='val')
+        _, _, outputs = self.forward(batch, stage=stage)
 
         x_ids = batch['x_ids'].detach()
         z_ids = batch['z_ids'].detach()

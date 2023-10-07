@@ -17,8 +17,6 @@ class SimpleTextCollator:
         self.max_Z_length = kwargs['tokenizer_z_params']['max_length']
         self.padding = kwargs['padding']
 
-        self.tokenize_prior_training = kwargs.get('tokenize_prior_training', False)
-
         self.pad_token_id = special_tokens.index('[pad]')
         self.eos_token_id = special_tokens.index('[eos]')
         self.bos_token_id = special_tokens.index('[bos]')
@@ -27,7 +25,7 @@ class SimpleTextCollator:
         self.tokenizer_x = hydra.utils.instantiate(kwargs['tokenizer_x'], dataset=data_train, special_tokens=special_tokens, **kwargs['tokenizer_x_params'] , _recursive_=False)
         self.tokenizer_z = hydra.utils.instantiate(kwargs['tokenizer_z'], dataset=data_train, special_tokens=special_tokens, **kwargs['tokenizer_z_params'] , _recursive_=False)
 
-    
+    # self.tokenize_prior_training = kwargs.get('tokenize_prior_training', False)
     # def pre_tokenize(self, data_train):
     #     self.x_ids = [
     #         [self.bos_token_id] + self.tokenizer_x.encode(sample['x']).ids + [self.eos_token_id]

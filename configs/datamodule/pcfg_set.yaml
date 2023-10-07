@@ -49,7 +49,9 @@ dataset_parameters:
   supervision_ratio: [0.05, 0.5] # [r(xz), r(z|not xz)]
   num_workers: 8
   overfit_batch: ${overfit_batch}
-  tokenize_in_dataset: ${datamodule.tokenize_in_dataset}
+  max_x_length: ${model.model_params.max_x_length}
+  max_z_length: ${model.model_params.max_z_length}
+  remove_long_data_points: True
   train:
     src_path: ${datamodule.experiment_paths[${datamodule.experiment}].train.src_path}
     tgt_path: ${datamodule.experiment_paths[${datamodule.experiment}].train.tgt_path}

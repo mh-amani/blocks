@@ -4,7 +4,7 @@ devices: 'auto' # also numbers
 accelerator: 'auto' #cpu, tpu, (devices=4, accelerator="gpu", strategy="ddp"), (devices="auto", accelerator="auto")
 
 accumulate_grad_batches: 1
-min_epochs: 150
+min_epochs: 100
 max_epochs: 200 #(-1) for infinite
 max_steps: -1 #(-1) for infinite
 check_val_every_n_epoch: 1
