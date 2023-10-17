@@ -38,10 +38,12 @@ def SimpleUnigramTokenizer(dataset, **kwargs):
 
 
 def PretrainedTokenizer(**kwargs):
+    key = kwargs['key']
     if kwargs['tokenizer_path'] == -1:
         model_path = kwargs['checkpoint_path']
-        path = os.path.dirname(os.path.dirname(model_path)) + '/tokenizer_'+ kwargs['key'] + '.json'
+        path = os.path.dirname(os.path.dirname(model_path)) + '/tokenizer_'+ key + '.json'
     tokenizer = Tokenizer.from_file(path)
+    tokenizer.save('./tokenizer_'+ key + '.json')
     return tokenizer
 
 

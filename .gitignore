@@ -154,3 +154,8 @@ profiler.txt
 run-train.sh
 
 .DS_Store
+
+output.png
+pip_freeze.txt
+tokenizer_x.json
+tokenizer_z.json

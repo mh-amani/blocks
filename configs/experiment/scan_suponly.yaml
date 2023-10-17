@@ -37,7 +37,7 @@ model:
 
     max_x_length: 20
     max_x_vocab_size: 25
-    max_z_length: 30
+    max_z_length: 60
     max_z_vocab_size: 25
     loss_coeff:
       # turn them to -1 to disable that loss, (in training, not in validation)

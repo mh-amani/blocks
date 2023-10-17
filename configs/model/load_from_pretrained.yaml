@@ -3,6 +3,7 @@ checkpoint_path: ???
 
 defaults:
   - collator: loaded_collator
+  - lr_scheduler: reduce_on_plateau
 
 model_params:
     decode_after_autoreg_step: ${model.substitute_config.model_params.decode_after_autoreg_step}
