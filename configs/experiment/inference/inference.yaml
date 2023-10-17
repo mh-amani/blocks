@@ -26,6 +26,8 @@ datamodule:
     supervision_ratio: [0.02, 0.9] # [r(xz), r(z|not xz)]
     batch_size: 128
     num_workers: 8
+    remove_long_data_points: False
+
 
 model:
   checkpoint_path: ???

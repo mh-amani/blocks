@@ -47,16 +47,16 @@ model:
     optimizer:
       lr: 0.001
 
-    lr_scheduler:
-      mode: "min"
-      factor: 0.8
-      patience: 5
-      threshold: 0.01
-      threshold_mode: "abs"
-      cooldown: 5
-      min_lr: 1e-6
-      eps: 1e-8
-      verbose: True
+    lr_scheduler: ${model.lr_scheduler}
+      # mode: "min"
+      # factor: 0.8
+      # patience: 5
+      # threshold: 0.01
+      # threshold_mode: "abs"
+      # cooldown: 5
+      # min_lr: 1e-6
+      # eps: 1e-8
+      # verbose: True
 
 callbacks:
   supervision_scheduler:

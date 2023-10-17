@@ -13,8 +13,8 @@ class SimpleTextCollator:
             ):
         
     
-        self.max_X_length = kwargs['tokenizer_x_params']['max_length']
-        self.max_Z_length = kwargs['tokenizer_z_params']['max_length']
+        self.max_x_length = kwargs['tokenizer_x_params']['max_length']
+        self.max_z_length = kwargs['tokenizer_z_params']['max_length']
         self.padding = kwargs['padding']
 
         self.pad_token_id = special_tokens.index('[pad]')
@@ -70,11 +70,11 @@ class SimpleTextCollator:
         z_ids = [ [self.bos_token_id] + self.tokenizer_z.encode(sample['z']).ids + [self.eos_token_id] for sample in batch]
     
         if cut_to_max_length:
-            if self.max_X_length is not None:
-                x_ids = [i[: self.max_X_length] for i in x_ids]
+            if self.max_x_length is not None:
+                x_ids = [i[: self.max_x_length] for i in x_ids]
             
-            if self.max_Z_length is not None:
-                z_ids = [i[: self.max_Z_length] for i in z_ids]
+            if self.max_z_length is not None:
+                z_ids = [i[: self.max_z_length] for i in z_ids]
             
         if self.padding:
             x_ids = self.pad(x_ids)

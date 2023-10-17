@@ -7,18 +7,12 @@ class GumbelDiscreteLayer(AbstractDiscreteLayer):
     def __init__(self, dims, **kwargs) -> None:
         super().__init__(dims, **kwargs)
         self.hard = kwargs['hard'] # if True, use argmax in forward pass, else use gumbel softmax. the backwardpass is the same in both cases
-        self.temperature = kwargs['tau']
+        self.output_embedding = torch.nn.Linear(self.output_dim, self.vocab_size)
 
     def discretize(self, x) -> dict:
-        x_probs = gumbel_softmax(x, tau=self.temperature, hard=self.hard, dim=-1)
-        return x_probs
-    
-    def decode(self, x):
-        # return gumbel_softmax(x, tau=self.temperature, hard=True, dim=-1).argmax(dim=-1)
-        # this is wrong, the softmax should not applied to the scores, but to the logits.
-        
-        # return gumbel_softmax(torch.log(x), tau=self.temperature, hard=True, dim=-1).argmax(dim=-1)
-        return torch.argmax(x, dim=-1)
-        
-        # return torch.argmax(x, dim=-1)
+        score = gumbel_softmax(x, tau=self.temperature, hard=self.hard, dim=-1)
+        x_quantized = torch.matmul(score, self.dictionary.weight)
+        id = torch.argmax(score, dim=-1)
+        quantization_loss = 0
+        return id, score, x_quantized, quantization_loss
     

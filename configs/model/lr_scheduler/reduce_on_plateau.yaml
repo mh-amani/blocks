@@ -10,6 +10,11 @@ min_lr: 1e-6
 eps: 1e-8
 verbose: True
 
+# _target_: torch.optim.lr_scheduler.CosineAnnealingWarmRestarts
+# T_0: 20
+# T_mult: 1 
+# eta_min: 0
+
 #     scheduler:  # the schedule instance defined above – will be passed from the code (in configure_optimizer)
 interval: "epoch" # The unit of the scheduler's step size. 'step' or 'epoch
 frequency: 1 # corresponds to updating the learning rate after every `frequency` epoch/step
