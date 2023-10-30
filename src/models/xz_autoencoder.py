@@ -82,7 +82,6 @@ class XZAutoencoder(LightningModule):
         self.disc_x = hydra.utils.instantiate(self.hparams.modules.disc_x, disc_conf_x, _recursive_ = False)
         self.disc_z = hydra.utils.instantiate(self.hparams.modules.disc_z, disc_conf_z, _recursive_ = False)
         
-        
 
     def setup(self, stage: str) -> None:
         pass
@@ -128,7 +127,11 @@ class XZAutoencoder(LightningModule):
         # if self.decode_after_autoreg_step:
         output_embed = discretizer.discrete_embedding_to_decoder(quantized_vector)
 
+        # Added for doing average on quantization loss
+        counter = 1
+        
         while output_attention_mask.shape[1] < max_length and not torch.all(eos_flag):
+            counter +=1
             current_id, current_score, current_quantized_vector, current_quantization_loss, current_eos_flag, past_key_values = \
             self.one_step_sequential_forward(model, discretizer, input_embeds, input_attention_mask,
                                                     output_embed, output_attention_mask=torch.logical_not(eos_flag),
@@ -146,7 +149,7 @@ class XZAutoencoder(LightningModule):
             eos_flag = torch.logical_or(eos_flag, current_eos_flag)
             output_attention_mask = torch.cat((output_attention_mask, torch.logical_not(eos_flag)), dim=1)
         
-        return id, score, quantized_vector, quantization_loss, output_attention_mask, eos_flag
+        return id, score, quantized_vector, quantization_loss/counter , output_attention_mask, eos_flag
         
 
     
@@ -221,15 +224,18 @@ class XZAutoencoder(LightningModule):
                                     decoder_inputs_embeds=x_embeds_dec, decoder_attention_mask=x_attention_mask,
                                     output_hidden_states = True)['decoder_hidden_states'][-1]
         
-        x_hat_ids, x_hat_scores, _, x_quantization_loss = self.disc_x(out_x)
-        z_hat_ids, z_hat_scores, _, z_quantization_loss = self.disc_z(out_z)
-
+        x_hat_ids, x_hat_scores, _, x_quantization_loss = self.disc_x(out_x, supervison = True ,true_ids = x_ids)
+        z_hat_ids, z_hat_scores, _, z_quantization_loss = self.disc_z(out_z, supervision = True, true_ids = z_ids)
+        
         quantization_loss = x_quantization_loss + z_quantization_loss
         return {'x_hat_ids': x_hat_ids, 'x_hat_scores': x_hat_scores,
                 'z_hat_ids': z_hat_ids, 'z_hat_scores': z_hat_scores, 'quantization_loss': quantization_loss}
     
 
     def forward(self, batch, stage='train'):
+        
+        
+        
         data_type = batch['data_type']
         
         x_ids = batch['x_ids']
@@ -253,7 +259,8 @@ class XZAutoencoder(LightningModule):
         losses['quantization_supervised_seperated'] = None
         losses['quantization_xzx'] = None
         losses['quantization_zxz'] = None
-
+        
+        # Supervision on Z and Supervision on X seperately
         if (data_type[0] and data_type[1]) and (stage!='train' or self.usexz):
             output_supervised_seperated = self.forward_supervised_seperated(x_ids, z_ids)
 
@@ -267,6 +274,7 @@ class XZAutoencoder(LightningModule):
             losses['supervised_seperated_z'] = loss_z
             losses['quantization_supervised_seperated'] = output_supervised_seperated['quantization_loss']
 
+        # Unsupervized xzx pass
         if data_type[0] and (stage!='train' or (self.usex and not(data_type[1]) )):
             output_xzx = self.forward_xzx(x_ids)
             loss_xzx = self.loss(torch.log(output_xzx['x_hat_scores'][:, :-1, :]).permute(0, 2, 1), x_ids[:, 1:])
@@ -274,13 +282,15 @@ class XZAutoencoder(LightningModule):
             losses['xzx'] = loss_xzx  
             losses['quantization_xzx'] = output_xzx['quantization_loss'] 
         
+        
+        # Unsupervized zxz pass
         if data_type[1] and (stage!='train' or (self.usez and not(data_type[0]) )):
             output_zxz = self.forward_zxz(z_ids)
             loss_zxz = self.loss(torch.log(output_zxz['z_hat_scores'][:, :-1, :]).permute(0, 2, 1), z_ids[:, 1:])
             outputs['zxz'] = output_zxz
             losses['zxz'] = loss_zxz 
             losses['quantization_zxz'] = output_zxz['quantization_loss']
-        
+      
         loss = 0 
         for key in losses:
             if losses[key] is not None and self.loss_coeff.get(key) is not None:
@@ -313,7 +323,9 @@ class XZAutoencoder(LightningModule):
                 self.clip_gradients(optimizer, gradient_clip_val=0.5, gradient_clip_algorithm="norm")
                 optimizer.step()
                 optimizer.zero_grad()
-        
+            
+            self.disc_x.project_embedding_matrix()
+            self.disc_z.project_embedding_matrix()
         
         return loss
     
@@ -328,6 +340,7 @@ class XZAutoencoder(LightningModule):
         assert np.all(batch['data_type']), "compute_accuracy_measures: data_type must be supervised"
         
         _, _, outputs = self.forward(batch, stage=stage)
+  
 
         x_ids = batch['x_ids'].detach()
         z_ids = batch['z_ids'].detach()

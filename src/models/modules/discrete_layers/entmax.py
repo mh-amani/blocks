@@ -9,7 +9,7 @@ class EntmaxDiscreteLayer(AbstractDiscreteLayer):
         super().__init__(dims, **kwargs)
         self.alpha = kwargs['alpha']
 
-    def discretize(self, x) -> dict:
+    def discretize(self, x, **kwargs) -> dict:
         x_probs = entmax_bisect(x, alpha=self.alpha, dim=-1)
         return x_probs
     

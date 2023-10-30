@@ -13,7 +13,7 @@ class GumbelDiscreteLayer(AbstractDiscreteLayer):
         x_out = self.linear_out(x_probs)
         return {'x_ids':x_ids, 'x_scores':x_probs, 'x_out':x_out}
 
-    def discretize(self, x, hard=False) -> dict:
+    def discretize(self, x, hard=False, **kwargs) -> dict:
         x_in = self.linear_in(x)
         x_probs = x_in
         return x_probs
