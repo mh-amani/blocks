@@ -5,7 +5,6 @@ import torch
 class AbstractDiscreteLayer(nn.Module):
     def __init__(self, dims, **kwargs) -> None:
         super().__init__()      
-        
         self.input_dim = dims['input_dim'] # fed by the model, after x->z and z->x models are instantiated
         self.output_dim = dims['output_dim'] # fed by the model, after x->z and z->x models are instantiated
         self.vocab_size = dims['vocab_size']
@@ -29,10 +28,17 @@ class AbstractDiscreteLayer(nn.Module):
     def discrete_embedding_to_encoder(self, x):
         return self.encoder_embedding(x)
     
-    def forward(self, x):
+    def project_matrix(self,x,**kwargs):
+        return x
+    
+    def project_embedding_matrix(self):
+        self.dictionary.weight = torch.nn.Parameter(self.project_matrix(self.dictionary.weight))
+    
+    def forward(self, x,**kwargs):
         continous_vector = self.decoder_to_discrete_embedding(x)
+          
         # scores are between 0 and 1, and sum to 1 over the vocab dimension.
-        id, score, quantized_vector, quantization_loss  = self.discretize(continous_vector)
+        id, score, quantized_vector, quantization_loss  = self.discretize(continous_vector,**kwargs)
         return id, score, quantized_vector, quantization_loss
     
     def embed_enc_from_id(self, x):
@@ -44,7 +50,7 @@ class AbstractDiscreteLayer(nn.Module):
         return self.discrete_embedding_to_decoder(embeds)
 
     @abstractmethod
-    def discretize(self, x) -> dict:
+    def discretize(self, x,**kwargs) -> dict:
         pass
 
 
