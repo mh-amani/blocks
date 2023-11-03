@@ -65,6 +65,10 @@ model_params:
   max_z_vocab_size: 200
   decode_after_autoreg_step: True
 
+  usexz: True
+  usex: True
+  usez: True
+  
   loss_coeff:
     xzx: 1.0
     zxz: 1.0

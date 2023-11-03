@@ -47,9 +47,9 @@ class XZAutoencoder(LightningModule):
         
         self.loss = torch.nn.NLLLoss(ignore_index=self.pad_token_id)
         self.loss_coeff = self.hparams.model_params.loss_coeff
-        self.usexz = (self.loss_coeff['supervised_seperated_z'] > 0 and self.loss_coeff['supervised_seperated_x'] > 0 )
-        self.usez = (self.loss_coeff['zxz'] > 0)
-        self.usex = (self.loss_coeff['xzx'] > 0)
+        self.usexz = self.hparams.model_params['usexz']
+        self.usez = self.hparams.model_params['usez']
+        self.usex = self.hparams.model_params['usex']
 
         self.batch_size = self.hparams.dataset_parameters.batch_size
 
@@ -233,9 +233,6 @@ class XZAutoencoder(LightningModule):
     
 
     def forward(self, batch, stage='train'):
-        
-        
-        
         data_type = batch['data_type']
         
         x_ids = batch['x_ids']
@@ -275,7 +272,7 @@ class XZAutoencoder(LightningModule):
             losses['quantization_supervised_seperated'] = output_supervised_seperated['quantization_loss']
 
         # Unsupervized xzx pass
-        if data_type[0] and (stage!='train' or (self.usex and not(data_type[1]) )):
+        if data_type[0] and (stage!='train' or self.usex):
             output_xzx = self.forward_xzx(x_ids)
             loss_xzx = self.loss(torch.log(output_xzx['x_hat_scores'][:, :-1, :]).permute(0, 2, 1), x_ids[:, 1:])
             outputs['xzx'] = output_xzx
@@ -284,7 +281,7 @@ class XZAutoencoder(LightningModule):
         
         
         # Unsupervized zxz pass
-        if data_type[1] and (stage!='train' or (self.usez and not(data_type[0]) )):
+        if data_type[1] and (stage!='train' or self.usez):
             output_zxz = self.forward_zxz(z_ids)
             loss_zxz = self.loss(torch.log(output_zxz['z_hat_scores'][:, :-1, :]).permute(0, 2, 1), z_ids[:, 1:])
             outputs['zxz'] = output_zxz
