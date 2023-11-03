@@ -3,7 +3,7 @@ key: vqvae
 temperature: 5.0
 label_smoothing_scale: 0.0
 dist_ord: 2
-commitment_weight: 1.0
-dictionary_dim: 10
+dictionary_dim: 20
 hard: False
-projection_method: "unit-sphere"
+# projection_method: "unit-sphere"
+beta: 0.25
