@@ -38,6 +38,10 @@ model:
       max_x_vocab_size: 25
       max_z_length: 60
       max_z_vocab_size: 25
+      
+      usex: True
+      usez: True
+      usexz: True
   
       
 logger:
