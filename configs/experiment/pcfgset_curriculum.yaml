@@ -5,7 +5,7 @@ defaults:
   - override /model: load_from_pretrained.yaml
 
 # name of the run determines folder name in logs
-name: "pcfg_symae"
+name: "pcfg_sigmae"
 run_name: "supervised-weak-0.002-pretrained-gumbel" 
 
 track_gradients: Yes
