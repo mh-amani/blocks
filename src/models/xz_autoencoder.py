@@ -4,6 +4,7 @@ import collections.abc
 import src.metrics
 import os
 import jsonlines
+import json
 import torch
 from omegaconf import OmegaConf
 from src.utils.metrics import pad_label_label
@@ -83,18 +84,26 @@ class XZAutoencoder(LightningModule):
         # self.token_homogeneity = {'X': src.metrics.TokenHomogeneity(self.eos_token_id),
         #                            'Z': src.metrics.TokenHomogeneity(self.eos_token_id)}
         self.acc_mask= {'x': None, 'z': None}
-        numclasses = max(self.collator.tokenizer_x.get_vocab_size(), self.collator.tokenizer_z.get_vocab_size())
+        # numclasses = max(self.collator.tokenizer_x.get_vocab_size(), self.collator.tokenizer_z.get_vocab_size())
+        numclasses = {'X': self.collator.tokenizer_x.get_vocab_size(), 'Z': self.collator.tokenizer_z.get_vocab_size()}
         self.accuracy = torch.nn.ModuleDict()
         self.accuracy_sentence = torch.nn.ModuleDict()
-        for stage in ['train', 'val', 'test']:
+        self.manual_accuracy = {}
+        self.manual_accuracy_sentence = {}
+        for stage in ['val', 'test']:
             for type in ['teacherforced', 'autoreg', 'autoreg_hidden_layer']:
                 for variable in ['X', 'Z']:
                     acc_name = f'{stage}/{type}/accuracy/{variable}'
                     sentence_acc_name = f'{stage}/{type}/sentence-accuracy/{variable}'
                     # self.accuracy[acc_name] = src.metrics.Accuracy(self.pad_token_id)
-                    self.accuracy[acc_name] = torchmetrics.classification.MulticlassAccuracy(num_classes=numclasses ,ignore_index=self.pad_token_id)
-                    self.accuracy_sentence[sentence_acc_name] = torchmetrics.classification.MulticlassExactMatch(num_classes=numclasses ,ignore_index=self.pad_token_id)
+                    self.accuracy[acc_name] = torchmetrics.classification.MulticlassAccuracy(num_classes=numclasses[variable] ,ignore_index=self.pad_token_id)
+                    self.accuracy_sentence[sentence_acc_name] = torchmetrics.classification.MulticlassExactMatch(num_classes=numclasses[variable] ,ignore_index=self.pad_token_id)
+                    self.manual_accuracy[acc_name] = {'correct': 0, 'total': 0}
+                    self.manual_accuracy_sentence[sentence_acc_name] = {'correct': 0, 'total': 0}
 
+        self.wrong_x_predictions = []
+        self.wrong_z_predictions = []
+                    
     def setup(self, stage: str) -> None:
         pass
         # numclasses = max(self.collator.tokenizer_x.get_vocab_size(), self.collator.tokenizer_z.get_vocab_size())
@@ -248,7 +257,7 @@ class XZAutoencoder(LightningModule):
                                     decoder_inputs_embeds=x_embeds_dec, decoder_attention_mask=x_attention_mask,
                                     output_hidden_states = True)['decoder_hidden_states'][-1]
         
-        x_hat_ids, x_hat_scores, _, x_quantization_loss = self.disc_x(out_x, supervison = True ,true_ids = x_ids)
+        x_hat_ids, x_hat_scores, _, x_quantization_loss = self.disc_x(out_x, supervision = True ,true_ids = x_ids)
         z_hat_ids, z_hat_scores, _, z_quantization_loss = self.disc_z(out_z, supervision = True, true_ids = z_ids)
         
         quantization_loss = x_quantization_loss + z_quantization_loss
@@ -345,8 +354,8 @@ class XZAutoencoder(LightningModule):
                 optimizer.step()
                 optimizer.zero_grad()
             
-            self.disc_x.project_embedding_matrix()
-            self.disc_z.project_embedding_matrix()
+            # self.disc_x.project_embedding_matrix()
+            # self.disc_z.project_embedding_matrix()
         
         return loss
 
@@ -366,7 +375,7 @@ class XZAutoencoder(LightningModule):
         # print('val_stats:', dict)
         # print('-----------------------')
 
-    def compute_accuracy_measures(self, batch, stage):
+    def compute_accuracy_measures(self, batch, batch_idx, stage):
         assert np.all(batch['data_type']), "compute_accuracy_measures: data_type must be supervised"
         
         _, _, outputs = self.forward(batch, stage=stage)
@@ -444,8 +453,28 @@ class XZAutoencoder(LightningModule):
         acc_name = f'{stage}/{type}/accuracy/{variable}'
         sentence_acc_name = f'{stage}/{type}/sentence-accuracy/{variable}'
         
-        self.log(acc_name, self.accuracy[acc_name](hat_ids.reshape(-1), ids.reshape(-1)), batch_size=self.batch_size)
-        self.log(sentence_acc_name, self.accuracy_sentence[sentence_acc_name](hat_ids, ids), batch_size=self.batch_size)
+        pad_mask = torch.logical_not(torch.eq(ids, self.pad_token_id))
+        hat_ids = hat_ids * pad_mask
+        
+        self.manual_accuracy[acc_name]['correct'] += torch.sum(torch.eq(hat_ids, ids)).cpu().numpy() - torch.sum(torch.logical_not(pad_mask)).cpu().numpy()
+        self.manual_accuracy[acc_name]['total'] += torch.sum(pad_mask).cpu().numpy()
+        
+        self.manual_accuracy_sentence[sentence_acc_name]['correct'] += torch.sum(torch.eq(hat_ids, ids).all(axis=-1)).cpu().numpy()
+        self.manual_accuracy_sentence[sentence_acc_name]['total'] += len(ids)
+        
+
+        # self.accuracy[acc_name].update(hat_ids.reshape(-1), ids.reshape(-1))
+        # self.accuracy_sentence[sentence_acc_name].update(hat_ids, ids)
+        # self.log(acc_name, self.accuracy[acc_name], batch_size=self.batch_size, )
+        # self.log(sentence_acc_name, self.accuracy_sentence[sentence_acc_name], batch_size=self.batch_size)
+
+        if sentence_acc_name.startswith('val/autoreg_hidden_layer/sentence-accuracy/X'):
+            wrong_prediction = torch.where(torch.logical_not(torch.eq(hat_ids, ids).all(axis=-1)))
+            self.wrong_x_predictions = self.wrong_x_predictions + wrong_prediction[0].cpu().numpy().tolist()
+        
+        if sentence_acc_name.startswith('val/autoreg_hidden_layer/sentence-accuracy/Z'):
+            wrong_prediction = torch.where(torch.logical_not(torch.eq(hat_ids, ids).all(axis=-1)))
+            self.wrong_z_predictions = self.wrong_z_predictions + wrong_prediction[0].cpu().numpy().tolist()
 
         # #Completeness test
         # value = self.completeness[variable](hat_ids, ids)
@@ -464,73 +493,106 @@ class XZAutoencoder(LightningModule):
         #     self._write_testing_output(step_summary)
         # return {acc_name: acc, sentence_acc_name: acc_sentence}
     
-        
-    def validation_step(self, batch, batch_idx):
-        self.compute_accuracy_measures(batch, stage='val')
     
+    def validation_step(self, batch, batch_idx):
+        self.compute_accuracy_measures(batch, batch_idx, stage='val')
+
     def on_validation_epoch_end(self):
         # self.correct_predictions_mask()
-        print('-------on validation epoch end------')
-        dict = self.correct_predictions_mask(self.trainer.datamodule.test_dataloader())
-        print('test_stats:', dict)
-        dict = self.correct_predictions_mask(self.trainer.datamodule.val_dataloader())
-        print('val_stats:', dict)
-        print('-----------------------')
+        for key in self.manual_accuracy:
+            if self.manual_accuracy[key]['total'] > 0:   
+                self.log('manual/' + key, self.manual_accuracy[key]['correct']/self.manual_accuracy[key]['total'], batch_size=self.batch_size)
+                if key.startswith('val/autoreg_hidden_layer'):
+                    print('manual/' + key, self.manual_accuracy[key]['correct']/self.manual_accuracy[key]['total'])
+            self.manual_accuracy[key] = {'correct': 0, 'total': 0}
+        for key in self.manual_accuracy_sentence:
+            if self.manual_accuracy_sentence[key]['total'] > 0:
+                self.log('manual/' + key, self.manual_accuracy_sentence[key]['correct']/self.manual_accuracy_sentence[key]['total'], batch_size=self.batch_size)
+                if key.startswith('val/autoreg_hidden_layer'):
+                    print('manual/' + key, self.manual_accuracy_sentence[key]['correct']/self.manual_accuracy_sentence[key]['total'])
+            self.manual_accuracy_sentence[key] = {'correct': 0, 'total': 0}
+        
+        with open('wrong_x_predictions.json', 'w') as f:
+            json.dump(self.wrong_x_predictions, f)
+        with open('wrong_z_predictions.json', 'w') as f:
+            json.dump(self.wrong_z_predictions, f)
+        self.wrong_x_predictions = []
+        self.wrong_z_predictions = []
+
+        # for key in self.accuracy:
+        #     self.accuracy[key].reset()
+        # for key in self.accuracy_sentence:
+        #     self.accuracy_sentence[key].reset()
+            
+        # print('-------on validation epoch end------')
+        # dict = self.correct_predictions_mask(self.trainer.datamodule.test_dataloader())
+        # print('test_stats:', dict)
+        # dict = self.correct_predictions_mask(self.trainer.datamodule.val_dataloader())
+        # print('val_stats:', dict)
+        # print('-----------------------')
 
     def test_step(self, batch, batch_idx):
         
-        outputs = self.compute_accuracy_measures(batch, stage='test')
+        outputs = self.compute_accuracy_measures(batch, batch_idx, stage='test')
 
-        if self.hparams['model_params'].get('num_bootstrap_tests', False):
-            n = self.hparams['model_params']['num_bootstrap_tests']
-            self.accuracy_bootstrapped = {'X': BootStrapper(src.metrics.Accuracy(self.pad_token_id).to(self.device),
-                                                num_bootstraps=n).to(self.device), 
-                             'Z': BootStrapper(src.metrics.Accuracy(self.pad_token_id).to(self.device),
-                                                num_bootstraps=n).to(self.device)}
-            self.accuracy_sentence_bootsrapped = {'X': BootStrapper(torchmetrics.classification.MulticlassExactMatch(num_classes=self.disc_x_vocab_size ,ignore_index=self.pad_token_id).to(self.device),
-                                                         num_bootstraps=n).to(self.device),
-                                        'Z': BootStrapper(torchmetrics.classification.MulticlassExactMatch(num_classes=self.disc_z_vocab_size ,ignore_index=self.pad_token_id).to(self.device),
-                                                           num_bootstraps=n).to(self.device)}
+        # if self.hparams['model_params'].get('num_bootstrap_tests', False):
+        #     n = self.hparams['model_params']['num_bootstrap_tests']
+        #     self.accuracy_bootstrapped = {'X': BootStrapper(src.metrics.Accuracy(self.pad_token_id).to(self.device),
+        #                                         num_bootstraps=n).to(self.device), 
+        #                      'Z': BootStrapper(src.metrics.Accuracy(self.pad_token_id).to(self.device),
+        #                                         num_bootstraps=n).to(self.device)}
+        #     self.accuracy_sentence_bootsrapped = {'X': BootStrapper(torchmetrics.classification.MulticlassExactMatch(num_classes=self.disc_x_vocab_size ,ignore_index=self.pad_token_id).to(self.device),
+        #                                                  num_bootstraps=n).to(self.device),
+        #                                 'Z': BootStrapper(torchmetrics.classification.MulticlassExactMatch(num_classes=self.disc_z_vocab_size ,ignore_index=self.pad_token_id).to(self.device),
+        #                                                    num_bootstraps=n).to(self.device)}
               
-            x_ids = batch['x_ids'].detach()
-            z_ids = batch['z_ids'].detach()
-            x_pad_mask = torch.logical_not(torch.eq(x_ids, self.pad_token_id))
-            z_pad_mask = torch.logical_not(torch.eq(z_ids, self.pad_token_id))
+        #     x_ids = batch['x_ids'].detach()
+        #     z_ids = batch['z_ids'].detach()
+        #     x_pad_mask = torch.logical_not(torch.eq(x_ids, self.pad_token_id))
+        #     z_pad_mask = torch.logical_not(torch.eq(z_ids, self.pad_token_id))
             
 
-            x_hat_ids_autoreg = outputs['zxz']['x_hat_ids'].detach()
-            x_ids_autoreg, x_hat_ids_autoreg = pad_label_label(x_ids, x_hat_ids_autoreg, self.pad_token_id)
-            x_pad_mask = torch.logical_not(torch.eq(x_ids_autoreg, self.pad_token_id))
-            x_hat_ids_autoreg[:, :-1] = x_hat_ids_autoreg[:, :-1] * x_pad_mask[:, 1:]
-            x_hat_ids_autoreg[:, -1] = 0
-            x_acc= self.accuracy_bootstrapped['X'](x_hat_ids_autoreg.reshape(-1), x_ids_autoreg.reshape(-1))
-            x_acc_sentence = self.accuracy_sentence_bootsrapped['X'](x_hat_ids_autoreg, x_ids_autoreg)
+        #     x_hat_ids_autoreg = outputs['zxz']['x_hat_ids'].detach()
+        #     x_ids_autoreg, x_hat_ids_autoreg = pad_label_label(x_ids, x_hat_ids_autoreg, self.pad_token_id)
+        #     x_pad_mask = torch.logical_not(torch.eq(x_ids_autoreg, self.pad_token_id))
+        #     x_hat_ids_autoreg[:, :-1] = x_hat_ids_autoreg[:, :-1] * x_pad_mask[:, 1:]
+        #     x_hat_ids_autoreg[:, -1] = 0
+        #     x_acc= self.accuracy_bootstrapped['X'](x_hat_ids_autoreg.reshape(-1), x_ids_autoreg.reshape(-1))
+        #     x_acc_sentence = self.accuracy_sentence_bootsrapped['X'](x_hat_ids_autoreg, x_ids_autoreg)
 
-            self.log('test/accuracy-mean/X', x_acc['mean'], batch_size=self.batch_size)
-            self.log('test/accuracy-std/X', x_acc['std'], batch_size=self.batch_size)
-            self.log('test/sentence-accuracy-mean/X', x_acc_sentence['mean'], batch_size=self.batch_size)
-            self.log('test/sentence-accuracy-std/X', x_acc_sentence['std'], batch_size=self.batch_size)
+        #     self.log('test/accuracy-mean/X', x_acc['mean'], batch_size=self.batch_size)
+        #     self.log('test/accuracy-std/X', x_acc['std'], batch_size=self.batch_size)
+        #     self.log('test/sentence-accuracy-mean/X', x_acc_sentence['mean'], batch_size=self.batch_size)
+        #     self.log('test/sentence-accuracy-std/X', x_acc_sentence['std'], batch_size=self.batch_size)
             
-            z_hat_ids_autoreg = outputs['xzx']['z_hat_ids'].detach()
-            z_ids_autoreg, z_hat_ids_autoreg = pad_label_label(z_ids, z_hat_ids_autoreg, self.pad_token_id)
-            z_pad_mask = torch.logical_not(torch.eq(z_ids_autoreg, self.pad_token_id))
-            z_hat_ids_autoreg[:, :-1] = z_hat_ids_autoreg[:, :-1] * z_pad_mask[:, 1:]
-            z_hat_ids_autoreg[:, -1] = 0
-            z_acc = self.accuracy_bootstrapped['Z'](z_hat_ids_autoreg.reshape(-1), z_ids_autoreg.reshape(-1))
-            z_acc_sentence = self.accuracy_sentence_bootsrapped['Z'](z_hat_ids_autoreg, z_ids_autoreg)
+        #     z_hat_ids_autoreg = outputs['xzx']['z_hat_ids'].detach()
+        #     z_ids_autoreg, z_hat_ids_autoreg = pad_label_label(z_ids, z_hat_ids_autoreg, self.pad_token_id)
+        #     z_pad_mask = torch.logical_not(torch.eq(z_ids_autoreg, self.pad_token_id))
+        #     z_hat_ids_autoreg[:, :-1] = z_hat_ids_autoreg[:, :-1] * z_pad_mask[:, 1:]
+        #     z_hat_ids_autoreg[:, -1] = 0
+        #     z_acc = self.accuracy_bootstrapped['Z'](z_hat_ids_autoreg.reshape(-1), z_ids_autoreg.reshape(-1))
+        #     z_acc_sentence = self.accuracy_sentence_bootsrapped['Z'](z_hat_ids_autoreg, z_ids_autoreg)
 
-            self.log('test/accuracy-mean/Z', z_acc['mean'], batch_size=self.batch_size)
-            self.log('test/accuracy-std/Z', z_acc['std'], batch_size=self.batch_size)
-            self.log('test/sentence-accuracy-mean/Z', z_acc_sentence['mean'], batch_size=self.batch_size)
-            self.log('test/sentence-accuracy-std/Z', z_acc_sentence['std'], batch_size=self.batch_size)
+        #     self.log('test/accuracy-mean/Z', z_acc['mean'], batch_size=self.batch_size)
+        #     self.log('test/accuracy-std/Z', z_acc['std'], batch_size=self.batch_size)
+        #     self.log('test/sentence-accuracy-mean/Z', z_acc_sentence['mean'], batch_size=self.batch_size)
+        #     self.log('test/sentence-accuracy-std/Z', z_acc_sentence['std'], batch_size=self.batch_size)
 
     
     def on_test_epoch_end(self):
         # self.correct_predictions_mask()
-        dict = self.correct_predictions_mask(self.trainer.datamodule.test_dataloader())
-        print('test_stats:', dict)
-        dict = self.correct_predictions_mask(self.trainer.datamodule.val_dataloader())
-        print('val_stats:', dict)
+        for key in self.manual_accuracy:
+            if self.manual_accuracy[key]['total'] > 0:   
+                self.log('manual/' + key, self.manual_accuracy[key]['correct']/self.manual_accuracy[key]['total'], batch_size=self.batch_size)
+            self.manual_accuracy[key] = {'correct': 0, 'total': 0}
+        for key in self.manual_accuracy_sentence:
+            if self.manual_accuracy_sentence[key]['total'] > 0:
+                self.log('manual/' + key, self.manual_accuracy_sentence[key]['correct']/self.manual_accuracy_sentence[key]['total'], batch_size=self.batch_size)
+            self.manual_accuracy_sentence[key] = {'correct': 0, 'total': 0}
+        # dict = self.correct_predictions_mask(self.trainer.datamodule.test_dataloader())
+        # print('test_stats:', dict)
+        # dict = self.correct_predictions_mask(self.trainer.datamodule.val_dataloader())
+        # print('val_stats:', dict)
 
     
 
@@ -581,8 +643,7 @@ class XZAutoencoder(LightningModule):
         return {'x_sentence_accuracy': correct_x_sentence_ids/len(dataloader.dataset), 
                 'x_token_accuracy': correct_x_ids/total_x_ids,
                 'z_sentence_accuracy': correct_z_sentence_ids/len(dataloader.dataset),
-                'z_token_accuracy': correct_z_ids/total_z_ids}
-
+                'z_token_accuracy': correct_z_ids/total_z_ids}        
 
     def configure_optimizers(self):
         

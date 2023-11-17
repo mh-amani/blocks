@@ -17,8 +17,8 @@ overfit_batch: 0
 trainer:
   devices: [0] # 'auto', or numbers like 2, [0]
   accelerator: 'gpu' #cpu, tpu, (devices=4, accelerator="gpu", strategy="ddp"), (devices="auto", accelerator="auto")  
-  max_epochs: 2
-  min_epochs: 2
+  max_epochs: 300
+  min_epochs: 300
 
 datamodule:
   dataset_parameters:
@@ -31,12 +31,12 @@ model:
   checkpoint_path: ???
   substitute_config:
     model_params:
-      acc_grad_batch: 4
+      acc_grad_batch: 1
       num_bootstrap_tests: 1
       
       usexz: True
-      usex: False
-      usez: False
+      usex: True
+      usez: True
 
       max_x_length: 20
       max_x_vocab_size: 25
@@ -55,7 +55,7 @@ model:
 
 
     optimizer:
-      lr: 0.0
+      lr: 0.001
 
     lr_scheduler: ${model.lr_scheduler}
       # mode: "min"
@@ -68,32 +68,20 @@ model:
       # eps: 1e-8
       # verbose: True
 
-# callbacks:
-#   supervision_scheduler:
-#     scheduler_xz:
-#       num_warmup_steps: 50
-#       num_training_steps: 200
-#       hp_init: 1.0
-#       hp_end: 0.5
-#     scheduler_z:
-#       # between 0 and 1, saying given that a sample is not xz, how likely is it to be z.
-#       num_warmup_steps: 50
-#       num_training_steps: 150
-#       hp_init: 1.0
-#       hp_end: 0.5
 callbacks:
   supervision_scheduler:
     scheduler_xz:
-      num_warmup_steps: 1
-      num_training_steps: 100
+      num_warmup_steps: 50
+      num_training_steps: 200
       hp_init: 1.0
-      hp_end: 1.0
+      hp_end: 0.5
     scheduler_z:
       # between 0 and 1, saying given that a sample is not xz, how likely is it to be z.
       num_warmup_steps: 1
-      num_training_steps: 100
+      num_training_steps: 200
       hp_init: 1.0
-      hp_end: 1.0
+      hp_end: 0.5
+
 
 logger:
   wandb:
