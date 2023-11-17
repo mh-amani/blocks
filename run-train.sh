@@ -26,6 +26,7 @@
 # --------------------------------------------------------------------------------------------------- #
 # ----------------------------------------------- SCAN ---------------------------------------------- #
 # supervised:
+python3 run_train.py +experiment=scan_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.99,0.9] model/discretizer=vqvae trainer.devices=[$DEVICE] datamodule.dataset_parameters.batch_size=$BSIZE +test=True 
 # python3 run_train.py +experiment=scan_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.01,0.9] model/discretizer=gumbel trainer.devices=[0] +test=True || true
 # python3 run_train.py +experiment=scan_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.02,0.9] model/discretizer=gumbel trainer.devices=[0] +test=True || true
 # python3 run_train.py +experiment=scan_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.04,0.9] model/discretizer=vqvae trainer.devices=[0] datamodule.dataset_parameters.batch_size=$BSIZE +test=True || true
@@ -37,9 +38,10 @@
 
 DEVICE=0
 BSIZE=512
-CKPT="'/dlabdata1/masani/blocks/logs/training/runs/scan/suponly-[0.04, 0.9]-gpt2_gpt2-vqvae/2023-11-06_14-51-57/checkpoints/last.ckpt'"
 # larger model:
-CKPT="'/dlabdata1/masani/blocks/logs/training/runs/scan/suponly-[0.04, 0.9]-gpt2_gpt2-vqvae/2023-11-11_19-23-32/checkpoints/last.ckpt'"
+CKPT="'/dlabdata1/masani/blocks/logs/training/runs/scan/suponly-[0.04, 0.9]-gpt2_gpt2-vqvae/2023-11-17_15-44-19/checkpoints/last.ckpt'"
+
+# CKPT="'/dlabdata1/masani/blocks/logs/training/runs/scan/suponly-[0.99, 0.9]-gpt2_gpt2-vqvae/2023-11-16_16-43-34/checkpoints/last.ckpt'"
 # python3 run_train.py +experiment=scan_curriculum.yaml datamodule.dataset_parameters.supervision_ratio=[0.04,0.9] model/lr_scheduler=cosine_annealing trainer.devices=[$DEVICE] datamodule.dataset_parameters.batch_size=$BSIZE sequence_to_sequence_model_key=gpt2_gpt2 discretizer_key=vqvae model.checkpoint_path="$CKPT" +test=True
 python3 run_train.py +experiment=scan_curriculum.yaml datamodule.dataset_parameters.supervision_ratio=[0.04,0.9] trainer.devices=[$DEVICE] datamodule.dataset_parameters.batch_size=$BSIZE sequence_to_sequence_model_key=gpt2_gpt2 discretizer_key=vqvae model.checkpoint_path="$CKPT" +test=True
 

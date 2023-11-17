@@ -11,8 +11,10 @@ class VQVAEDiscreteLayer(AbstractDiscreteLayer):
         self.projection_method = kwargs.get("projection_method",None)
         
         self.dictionary = nn.Embedding(self.vocab_size, self.dictionary_dim)
+        self.dictionary.weight = torch.nn.Parameter(self.project_matrix(self.dictionary.weight))
         
         self.dist_ord = kwargs.get('dist_ord', 2) 
+        self.embedding_loss = torch.nn.functional.mse_loss # torch.nn.CosineSimilarity(dim=-1)
         self.hard = kwargs['hard']
         self.kernel = nn.Softmax(dim=-1)
         self.beta = kwargs.get("beta",0.25) #0.25 is the beta used in the vq-vae paper
@@ -35,9 +37,14 @@ class VQVAEDiscreteLayer(AbstractDiscreteLayer):
     def project_matrix(self,x):
         if self.projection_method == "unit-sphere":
             return torch.nn.functional.normalize(x,dim=-1)
+        if self.projection_method == "scale":
+            # devide the vector by the square root of the dimension
+            return x / torch.sqrt(self.dictionary_dim)
+        if self.projection_method == "layer norm":
+            return self.out_layer_norm(x)     
         return x
     
-    def discretize(self, x, **kwargs) -> dict:        
+    def discretize(self, x, **kwargs) -> dict: 
         probs = self.kernel( - self.codebook_distances(x) / self.temperature)
         x = self.project_matrix(x)
         indices = torch.argmax(probs, dim=-1)
@@ -51,12 +58,12 @@ class VQVAEDiscreteLayer(AbstractDiscreteLayer):
 
         if kwargs.get("supervision",False):
             true_quantized = self.dictionary(kwargs.get("true_ids",None))
-            commitment_loss = torch.nn.functional.mse_loss(true_quantized.detach(),x)
-            embedding_loss = torch.nn.functional.mse_loss(true_quantized,x.detach())
+            commitment_loss = self.embedding_loss(true_quantized.detach(),x)
+            embedding_loss = self.embedding_loss(true_quantized,x.detach())
             
         else:
-            commitment_loss = torch.nn.functional.mse_loss(quantized.detach(),x)
-            embedding_loss = torch.nn.functional.mse_loss(quantized,x.detach())
+            commitment_loss = self.embedding_loss(quantized.detach(),x) 
+            embedding_loss = self.embedding_loss(quantized,x.detach())
             
         vq_loss = self.beta * commitment_loss + embedding_loss
         
@@ -75,3 +82,5 @@ class VQVAEDiscreteLayer(AbstractDiscreteLayer):
         # Compute the squared differences
         dist = torch.linalg.vector_norm(x_expanded - dictionary_expanded, ord=self.dist_ord, dim=-1)
         return dist
+
+    

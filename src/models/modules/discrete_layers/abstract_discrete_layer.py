@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 import torch.nn as nn
 import torch
-
+from torch.nn import LayerNorm
 class AbstractDiscreteLayer(nn.Module):
     def __init__(self, dims, **kwargs) -> None:
         super().__init__()      
@@ -12,6 +12,8 @@ class AbstractDiscreteLayer(nn.Module):
 
         self.temperature = kwargs.get('temperature', 1)
         self.label_smoothing_scale = kwargs.get('label_smoothing_scale', 0.001)
+        
+        self.out_layer_norm = LayerNorm(self.dictionary_dim)
 
         self.dictionary = nn.Embedding(self.vocab_size, self.dictionary_dim)
 
@@ -20,7 +22,8 @@ class AbstractDiscreteLayer(nn.Module):
         self.decoder_embedding = nn.Linear(self.dictionary_dim, self.output_dim)
     
     def decoder_to_discrete_embedding(self, x):
-        return self.output_embedding(x)
+       out_x = self.output_embedding(x)
+       return out_x
     
     def discrete_embedding_to_decoder(self, x):
         return self.decoder_embedding(x)
