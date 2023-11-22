@@ -22,7 +22,7 @@ modules:
       vocab_size: 20
       n_embd: 256
       n_positions: ${model.model_params.max_x_length}
-      n_layer: 4
+      n_layer: 8
       n_head: 4
       activation_function: 'gelu_new'
 
@@ -32,7 +32,7 @@ modules:
       vocab_size: 20
       n_embd: 256
       n_positions: ${model.model_params.max_z_length}
-      n_layer: 4
+      n_layer: 8
       n_head: 4
       activation_function: 'gelu_new'
   
@@ -44,7 +44,7 @@ modules:
       vocab_size: 60
       n_embd: 256
       n_positions: ${model.model_params.max_z_length}
-      n_layer: 4
+      n_layer: 8
       n_head: 4
       activation_function: 'gelu_new'
 
@@ -54,7 +54,7 @@ modules:
       vocab_size: 60
       n_embd: 256
       n_positions: ${model.model_params.max_x_length}
-      n_layer: 4
+      n_layer: 8
       n_head: 4
       activation_function: 'gelu_new'
 

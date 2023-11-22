@@ -512,12 +512,12 @@ class XZAutoencoder(LightningModule):
                     print('manual/' + key, self.manual_accuracy_sentence[key]['correct']/self.manual_accuracy_sentence[key]['total'])
             self.manual_accuracy_sentence[key] = {'correct': 0, 'total': 0}
         
-        with open('wrong_x_predictions.json', 'w') as f:
-            json.dump(self.wrong_x_predictions, f)
-        with open('wrong_z_predictions.json', 'w') as f:
-            json.dump(self.wrong_z_predictions, f)
-        self.wrong_x_predictions = []
-        self.wrong_z_predictions = []
+        # with open('wrong_x_predictions.json', 'w') as f:
+        #     json.dump(self.wrong_x_predictions, f)
+        # with open('wrong_z_predictions.json', 'w') as f:
+        #     json.dump(self.wrong_z_predictions, f)
+        # self.wrong_x_predictions = []
+        # self.wrong_z_predictions = []
 
         # for key in self.accuracy:
         #     self.accuracy[key].reset()
