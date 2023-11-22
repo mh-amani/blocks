@@ -7,3 +7,4 @@ dictionary_dim: 256
 hard: True
 projection_method: "layer norm" # "unit-sphere" "scale" "layer norm" or "None"
 beta: 0.25
+
