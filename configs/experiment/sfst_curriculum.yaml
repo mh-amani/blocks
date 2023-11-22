@@ -17,7 +17,8 @@ overfit_batch: 0
 trainer:
   devices: [0] # 'auto', or numbers like 2, [0]
   accelerator: 'gpu' #cpu, tpu, (devices=4, accelerator="gpu", strategy="ddp"), (devices="auto", accelerator="auto")  
-
+  max_epochs: 500
+  min_epochs: 500
 
 datamodule:
   dataset_parameters:

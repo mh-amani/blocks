@@ -1,8 +1,10 @@
 _target_: src.models.modules.discrete_layers.vq_vae.VQVAEDiscreteLayer
 key: vqvae
-temperature: 5.0
+temperature: 1.0
 label_smoothing_scale: 0.0
 dist_ord: 2
-commitment_weight: 1.0
-dictionary_dim: 200
-hard: False
+dictionary_dim: 256
+hard: True
+projection_method: "layer norm" # "unit-sphere" "scale" "layer norm" or "None"
+beta: 0.25
+
