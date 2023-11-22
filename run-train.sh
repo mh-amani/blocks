@@ -25,33 +25,30 @@
 # --------------------------------------------------------------------------------------------------- #
 # --------------------------------------------------------------------------------------------------- #
 # ----------------------------------------------- SCAN ---------------------------------------------- #
-# supervised:
-python3 run_train.py +experiment=scan_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.99,0.9] model/discretizer=vqvae trainer.devices=[$DEVICE] datamodule.dataset_parameters.batch_size=$BSIZE +test=True 
-# python3 run_train.py +experiment=scan_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.01,0.9] model/discretizer=gumbel trainer.devices=[0] +test=True || true
-# python3 run_train.py +experiment=scan_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.02,0.9] model/discretizer=gumbel trainer.devices=[0] +test=True || true
-# python3 run_train.py +experiment=scan_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.04,0.9] model/discretizer=vqvae trainer.devices=[0] datamodule.dataset_parameters.batch_size=$BSIZE +test=True || true
-# python3 run_train.py +experiment=scan_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.08,0.9] model/discretizer=gumbel trainer.devices=[1] +test=True || true
-# python3 run_train.py +experiment=scan_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.16,0.9] model/discretizer=gumbel trainer.devices=[1] +test=True || true
-# python3 run_train.py +experiment=scan_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.32,0.9] model/discretizer=gumbel trainer.devices=[1] +test=True || true
-# python3 run_train.py +experiment=scan_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.64,0.9] model/discretizer=gumbel trainer.min_epochs=200 trainer.devices=[$device] +test=True || true
-# python3 run_train.py +experiment=scan_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.99,0.9] model/discretizer=gumbel trainer.devices=[$device] +test=True || true
-
 DEVICE=0
 BSIZE=512
-# larger model:
+# 4 layer model:
 CKPT="'/dlabdata1/masani/blocks/logs/training/runs/scan/suponly-[0.04, 0.9]-gpt2_gpt2-vqvae/2023-11-17_15-44-19/checkpoints/last.ckpt'"
+# 8 layer model:
+CKPT="'/dlabdata1/masani/blocks/logs/training/runs/scan/suponly-[0.04, 0.9]-gpt2_gpt2-vqvae/2023-11-21_14-02-58/checkpoints/last.ckpt'"
+
+
+# supervised:
+python3 run_train.py +experiment=scan_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.99,0.9] model/discretizer=vqvae trainer.devices=[$DEVICE] datamodule.dataset_parameters.batch_size=$BSIZE +test=True 
+python3 run_train.py +experiment=scan_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.01,0.9] model/discretizer=vqvae trainer.devices=[0] datamodule.dataset_parameters.batch_size=$BSIZE +test=True || true
+python3 run_train.py +experiment=scan_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.02,0.9] model/discretizer=vqvae trainer.devices=[0] datamodule.dataset_parameters.batch_size=$BSIZE +test=True || true
+python3 run_train.py +experiment=scan_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.04,0.9] model/discretizer=vqvae trainer.devices=[0] datamodule.dataset_parameters.batch_size=$BSIZE +test=True || true
+python3 run_train.py +experiment=scan_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.08,0.9] model/discretizer=vqvae trainer.devices=[0] datamodule.dataset_parameters.batch_size=$BSIZE +test=True || true
+python3 run_train.py +experiment=scan_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.16,0.9] model/discretizer=vqvae trainer.devices=[0] datamodule.dataset_parameters.batch_size=$BSIZE +test=True || true
+python3 run_train.py +experiment=scan_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.32,0.9] model/discretizer=vqvae trainer.devices=[0] datamodule.dataset_parameters.batch_size=$BSIZE +test=True || true
+
 
 # CKPT="'/dlabdata1/masani/blocks/logs/training/runs/scan/suponly-[0.99, 0.9]-gpt2_gpt2-vqvae/2023-11-16_16-43-34/checkpoints/last.ckpt'"
 # python3 run_train.py +experiment=scan_curriculum.yaml datamodule.dataset_parameters.supervision_ratio=[0.04,0.9] model/lr_scheduler=cosine_annealing trainer.devices=[$DEVICE] datamodule.dataset_parameters.batch_size=$BSIZE sequence_to_sequence_model_key=gpt2_gpt2 discretizer_key=vqvae model.checkpoint_path="$CKPT" +test=True
 python3 run_train.py +experiment=scan_curriculum.yaml datamodule.dataset_parameters.supervision_ratio=[0.04,0.9] trainer.devices=[$DEVICE] datamodule.dataset_parameters.batch_size=$BSIZE sequence_to_sequence_model_key=gpt2_gpt2 discretizer_key=vqvae model.checkpoint_path="$CKPT" +test=True
 
 # weakly supervised:
-python3 run_train.py +experiment=scan_curriculum.yaml datamodule.dataset_parameters.supervision_ratio=[0.01,0.9] trainer.devices=[1] datamodule.dataset_parameters.batch_size=512 sequence_to_sequence_model_key=gpt2_gpt2 discretizer_key=gumbel model.checkpoint_path=\'/dlabdata1/masani/blocks/logs/training/runs/scan/suponly-\[0.01,\ 0.9\]-gpt2_gpt2-gumbel/2023-10-07_13-53-58/checkpoints/last.ckpt\' +test=True || true
-python3 run_train.py +experiment=scan_curriculum.yaml datamodule.dataset_parameters.supervision_ratio=[0.02,0.9] trainer.devices=[1] datamodule.dataset_parameters.batch_size=256 sequence_to_sequence_model_key=gpt2_gpt2 discretizer_key=gumbel model.checkpoint_path=\'/dlabdata1/masani/blocks/logs/training/runs/scan/suponly-\[0.02,\ 0.9\]-gpt2_gpt2-gumbel/2023-10-07_15-30-46/checkpoints/last.ckpt\' +test=True || true
-python3 run_train.py +experiment=scan_curriculum.yaml datamodule.dataset_parameters.supervision_ratio=[0.04,0.9] trainer.devices=[1] datamodule.dataset_parameters.batch_size=256 sequence_to_sequence_model_key=gpt2_gpt2 discretizer_key=vqvae model.checkpoint_path=\'/dlabdata1/masani/blocks/logs/training/runs/scan/suponly-\[0.04,\ 0.9\]-gpt2_gpt2-vqvae/2023-10-15_14-51-47/checkpoints/last.ckpt\' +test=True || true
-python3 run_train.py +experiment=scan_curriculum.yaml datamodule.dataset_parameters.supervision_ratio=[0.08,0.9] trainer.devices=[1] datamodule.dataset_parameters.batch_size=256 sequence_to_sequence_model_key=gpt2_gpt2 discretizer_key=gumbel model.checkpoint_path=\'/dlabdata1/masani/blocks/logs/training/runs/scan/suponly-\[0.08,\ 0.9\]-gpt2_gpt2-gumbel/2023-10-08_18-21-53/checkpoints/last.ckpt\' +test=True || true
-python3 run_train.py +experiment=scan_curriculum.yaml datamodule.dataset_parameters.supervision_ratio=[0.16,0.9] trainer.devices=[1] datamodule.dataset_parameters.batch_size=256 sequence_to_sequence_model_key=gpt2_gpt2 discretizer_key=gumbel model.checkpoint_path=\'/dlabdata1/masani/blocks/logs/training/runs/scan/suponly-\[0.16,\ 0.9\]-gpt2_gpt2-gumbel/2023-10-08_19-05-00/checkpoints/last.ckpt\' +test=True || true
-python3 run_train.py +experiment=scan_curriculum.yaml datamodule.dataset_parameters.supervision_ratio=[0.32,0.9] trainer.devices=[1] datamodule.dataset_parameters.batch_size=256 sequence_to_sequence_model_key=gpt2_gpt2 discretizer_key=gumbel model.checkpoint_path=\'/dlabdata1/masani/blocks/logs/training/runs/scan/suponly-\[0.32,\ 0.9\]-gpt2_gpt2-gumbel/2023-10-08_19-47-34/checkpoints/last.ckpt\' +test=True || true
+
 
 # testing
 # python3 run_inference.py +experiment/inference=inference datamodule=scan datamodule.dataset_parameters.supervision_ratio=[0.01,0.9] trainer.devices=[1] training_type=suponly datamodule.dataset_parameters.batch_size=256 sequence_to_sequence_model_key=gpt2_gpt2 discretizer_key=gumbel model.checkpoint_path=\'/dlabdata1/masani/blocks/logs/training/runs/scan/curriculum-\[0.01,\ 0.9\]-gpt2_gpt2-gumbel/2023-10-09_10-41-37/checkpoints/last.ckpt\' || true

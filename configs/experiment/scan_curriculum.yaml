@@ -17,8 +17,8 @@ overfit_batch: 0
 trainer:
   devices: [0] # 'auto', or numbers like 2, [0]
   accelerator: 'gpu' #cpu, tpu, (devices=4, accelerator="gpu", strategy="ddp"), (devices="auto", accelerator="auto")  
-  max_epochs: 300
-  min_epochs: 300
+  max_epochs: 1000
+  min_epochs: 1000
 
 datamodule:
   dataset_parameters:
@@ -31,12 +31,12 @@ model:
   checkpoint_path: ???
   substitute_config:
     model_params:
-      acc_grad_batch: 1
+      acc_grad_batch: 4
       num_bootstrap_tests: 1
       
       usexz: True
-      usex: True
-      usez: True
+      usex: False
+      usez: False
 
       max_x_length: 20
       max_x_vocab_size: 25
@@ -45,42 +45,42 @@ model:
 
       
       loss_coeff:
-        xzx: 0.1
-        zxz: 0.1
+        xzx: 1.0
+        zxz: 1.0
         supervised_seperated_x: 1.0
         supervised_seperated_z: 1.0
-        quantization_zxz: 1.0                                                                                                                                                                                                                                                                                                          
-        quantization_xzx: 1.0
-        quantization_supervised_seperated: 1.0
+        quantization_zxz: 0.0                                                                                                                                                                                                                                                                                                        
+        quantization_xzx: 0.0
+        quantization_supervised_seperated: 0.5
 
 
     optimizer:
       lr: 0.001
 
-    lr_scheduler: ${model.lr_scheduler}
-      # mode: "min"
-      # factor: 0.8
-      # patience: 5
-      # threshold: 0.01
-      # threshold_mode: "abs"
-      # cooldown: 5
-      # min_lr: 1e-6
-      # eps: 1e-8
-      # verbose: True
+    lr_scheduler: # ${model.lr_scheduler}
+      mode: "min"
+      factor: 0.98
+      patience: 20
+      threshold: 0.01
+      threshold_mode: "abs"
+      cooldown: 5
+      min_lr: 1e-6
+      eps: 1e-8
+      verbose: True
 
 callbacks:
   supervision_scheduler:
     scheduler_xz:
-      num_warmup_steps: 50
-      num_training_steps: 200
-      hp_init: 1.0
-      hp_end: 0.5
+      num_warmup_steps: 1
+      num_training_steps: 300
+      hp_init: 0.8
+      hp_end: 0.8
     scheduler_z:
       # between 0 and 1, saying given that a sample is not xz, how likely is it to be z.
-      num_warmup_steps: 1
-      num_training_steps: 200
-      hp_init: 1.0
-      hp_end: 0.5
+      num_warmup_steps: 300
+      num_training_steps: 500
+      hp_init: 0.8
+      hp_end: 0.8
 
 
 logger:
