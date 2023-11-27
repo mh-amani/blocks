@@ -27,7 +27,7 @@
 # ----------------------------------------------- SCAN ---------------------------------------------- #
 
 DEVICE=0
-BSIZE=512
+BSIZE=128
 # 4 layer model:
 CKPT="'/dlabdata1/masani/blocks/logs/training/runs/scan/suponly-[0.04, 0.9]-gpt2_gpt2-vqvae/2023-11-17_15-44-19/checkpoints/last.ckpt'"
 # 8 layer model:

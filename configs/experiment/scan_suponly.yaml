@@ -34,7 +34,12 @@ datamodule:
 
 model:
   model_params:
-    acc_grad_batch: 1
+    # for gradient inner product logging in val step 
+    log_gradient_stats: True
+    num_steps_log_gradient_stats: 4
+    log_gradient_stats_batch_size: 8
+
+    acc_grad_batch: 8
     num_bootstrap_tests: 10
 
     max_x_length: 20
@@ -61,10 +66,10 @@ model:
   lr_scheduler:
     mode: "min"
     factor: 0.98
-    patience: 5
+    patience: 40
     threshold: 0.01
     threshold_mode: "abs"
-    cooldown: 5
+    cooldown: 40
     min_lr: 1e-6
     eps: 1e-8
     verbose: True

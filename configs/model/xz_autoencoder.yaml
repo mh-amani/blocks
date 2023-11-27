@@ -83,3 +83,8 @@ model_params:
   use_tokenizer_vocab_len: true
   disc_x_vocab_size: -1
   disc_z_vocab_size: -1
+  
+  # for gradient inner product logging in val step 
+  log_gradient_stats: True
+  num_steps_log_gradient_stats: 4
+  log_gradient_stats_batch_size: 32
