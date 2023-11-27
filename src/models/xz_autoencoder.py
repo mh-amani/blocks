@@ -1,5 +1,6 @@
 import hydra
 from pytorch_lightning import LightningModule
+from torch.utils.data import DataLoader, Subset
 import collections.abc
 import src.metrics
 import os
@@ -11,6 +12,7 @@ from src.utils.metrics import pad_label_label
 import numpy as np
 from torchmetrics.wrappers import BootStrapper
 import torchmetrics
+import code
 
 class XZAutoencoder(LightningModule):
     def __init__(self, **kwargs) -> None:
@@ -103,9 +105,23 @@ class XZAutoencoder(LightningModule):
 
         self.wrong_x_predictions = []
         self.wrong_z_predictions = []
+
+        self.log_gradient_stats = self.hparams.model_params.log_gradient_stats
+        self.num_steps_log_gradient_stats = self.hparams.model_params.num_steps_log_gradient_stats
+        self.log_gradient_stats_batch_size = self.hparams.model_params.log_gradient_stats_batch_size
                     
     def setup(self, stage: str) -> None:
-        pass
+        
+        if self.log_gradient_stats and not hasattr(self, 'log_gradient_dataloader'):
+            indices = range(self.log_gradient_stats_batch_size * self.num_steps_log_gradient_stats)
+            self.log_gradient_dataset = Subset(self.trainer.datamodule.data_train, indices)
+            self.log_gradient_dataloader = DataLoader(
+                self.log_gradient_dataset,
+                batch_size=self.log_gradient_stats_batch_size,
+                shuffle=False,
+                collate_fn=self.collator.collate_fn
+            )
+
         # numclasses = max(self.collator.tokenizer_x.get_vocab_size(), self.collator.tokenizer_z.get_vocab_size())
         # self.accuracy = {}
         # self.accuracy_sentence = {}
@@ -375,11 +391,12 @@ class XZAutoencoder(LightningModule):
         # print('val_stats:', dict)
         # print('-----------------------')
 
+
     def compute_accuracy_measures(self, batch, batch_idx, stage):
         assert np.all(batch['data_type']), "compute_accuracy_measures: data_type must be supervised"
-        
-        _, _, outputs = self.forward(batch, stage=stage)
-  
+
+        _, _, outputs = self.forward(batch, stage='val')
+
         accuracies = {}
 
         x_ids = batch['x_ids'].detach()
@@ -443,6 +460,7 @@ class XZAutoencoder(LightningModule):
 
         return outputs
 
+
     def accuracy_measures(self, ids, hat_ids, stage, variable, type, log=True):
         
         # shifting to make the sequences aligned, removing bos
@@ -493,7 +511,29 @@ class XZAutoencoder(LightningModule):
         #     self._write_testing_output(step_summary)
         # return {acc_name: acc, sentence_acc_name: acc_sentence}
     
-    
+    def calculate_gradient_stats(self, gradient_dict):
+        cosine_similarity = torch.nn.CosineSimilarity(dim=0)
+        similarities = {}
+        grad_norm_means = {}
+        grad_norm_stds = {}
+
+        # Get the intersection of parameter names across all losses
+        shared_params = set.intersection(*(set(grad_dict.keys()) for grad_dict in gradient_dict.values()))
+
+        for loss1 in ['supervised_seperated_x', 'supervised_seperated_z', 'zxz', 'xzx']:
+            grad_rms = torch.stack([torch.sqrt(torch.mean(torch.square(gradient_dict[loss1][param_name]))) for param_name in gradient_dict[loss1].keys()])
+            grad_norm_means[loss1] = torch.mean(grad_rms)
+            grad_norm_stds[loss1] = torch.std(grad_rms)
+        for loss1 in ['zxz', 'xzx']:
+            for loss2 in ['supervised_seperated_x', 'supervised_seperated_z']:
+                    # Compute cosine similarity for each shared parameter and average
+                    similarities[f'{loss1}-{loss2}'] = torch.mean(torch.stack(
+                        [cosine_similarity(gradient_dict[loss1][param_name], gradient_dict[loss2][param_name])
+                         for param_name in shared_params]
+                    ))
+        return {'cosine_similarities': similarities, 'grad_norm_means': grad_norm_means, 'grad_norm_stds': grad_norm_stds}
+
+
     def validation_step(self, batch, batch_idx):
         self.compute_accuracy_measures(batch, batch_idx, stage='val')
 
@@ -502,15 +542,61 @@ class XZAutoencoder(LightningModule):
         for key in self.manual_accuracy:
             if self.manual_accuracy[key]['total'] > 0:   
                 self.log('manual/' + key, self.manual_accuracy[key]['correct']/self.manual_accuracy[key]['total'], batch_size=self.batch_size)
-                if key.startswith('val/autoreg_hidden_layer'):
-                    print('manual/' + key, self.manual_accuracy[key]['correct']/self.manual_accuracy[key]['total'])
+                # if key.startswith('val/autoreg_hidden_layer'):
+                    # print('manual/' + key, self.manual_accuracy[key]['correct']/self.manual_accuracy[key]['total'])
             self.manual_accuracy[key] = {'correct': 0, 'total': 0}
         for key in self.manual_accuracy_sentence:
             if self.manual_accuracy_sentence[key]['total'] > 0:
                 self.log('manual/' + key, self.manual_accuracy_sentence[key]['correct']/self.manual_accuracy_sentence[key]['total'], batch_size=self.batch_size)
-                if key.startswith('val/autoreg_hidden_layer'):
-                    print('manual/' + key, self.manual_accuracy_sentence[key]['correct']/self.manual_accuracy_sentence[key]['total'])
+                # if key.startswith('val/autoreg_hidden_layer'):
+                    # print('manual/' + key, self.manual_accuracy_sentence[key]['correct']/self.manual_accuracy_sentence[key]['total'])
             self.manual_accuracy_sentence[key] = {'correct': 0, 'total': 0}
+
+         # if self.validation_step_gradient_logging:
+        if self.log_gradient_stats:
+            self.train()
+            # Ensure gradient computation is enabled
+            torch.set_grad_enabled(True)
+
+            for batch in self.log_gradient_dataloader:
+                # sending to device
+                for key in batch:
+                    if isinstance(batch[key], torch.Tensor):
+                        batch[key] = batch[key].to(self.device)
+                # Forward pass to compute losses
+                _, losses, outputs = self.forward(batch, stage='val')
+
+                # Calculate gradients for each loss separately and store them
+                gradient_dict = {}
+                for loss_name in ['supervised_seperated_x', 'supervised_seperated_z', 'zxz', 'xzx']:
+                    if losses[loss_name] is not None:
+                        self.manual_backward(losses[loss_name], retain_graph=True)
+                        gradient_dict[loss_name] = {name: param.grad.clone() for name, param in self.named_parameters() if param.grad is not None}
+
+                        # Zero out gradients after each backward pass
+                        self.zero_grad()
+
+                # Calculate cosine similarity between gradients of different losses
+                grad_stat = self.calculate_gradient_stats(gradient_dict)
+                if 'grad_stats' not in locals():
+                    grad_stats = grad_stat  
+                else:
+                    for key in grad_stats.keys():
+                        grad_stats[key] = {subkey: grad_stats[key][subkey] + grad_stat[key][subkey] for subkey in grad_stat[key].keys()}
+
+            # Average over all batches
+            for key in grad_stats.keys():
+                grad_stats[key] = {subkey: grad_stats[key][subkey] / self.num_steps_log_gradient_stats for subkey in grad_stats[key].keys()}
+            for key in grad_stats['cosine_similarities']:
+                self.log(f'val/gradient_stats/cosine_sim/{key}', grad_stats['cosine_similarities'][key], batch_size=self.batch_size)
+            for key in grad_stats['grad_norm_means']:
+                self.log(f'val/gradient_stats/gradient_rms_mean/{key}', grad_stats['grad_norm_means'][key], batch_size=self.batch_size)
+            for key in grad_stats['grad_norm_stds']:
+                self.log(f'val/gradient_stats/gradient_rms_std/{key}', grad_stats['grad_norm_stds'][key], batch_size=self.batch_size)
+
+            # Disable gradient computation as it's typically not needed after this
+            torch.set_grad_enabled(False)
+            self.eval()
         
         # with open('wrong_x_predictions.json', 'w') as f:
         #     json.dump(self.wrong_x_predictions, f)

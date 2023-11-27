@@ -1,4 +1,3 @@
-
 _target_: src.datamodules.cogs.COGSDatamodule
 dataset_target_: src.datamodules.cogs.COGSDataset
 seed: 42
@@ -19,7 +18,7 @@ dataset_parameters:
   overfit_batch: ${overfit_batch}
   max_x_length: ${model.model_params.max_x_length}
   max_z_length: ${model.model_params.max_z_length}
-  remove_long_data_points: True
+  remove_long_data_points: False
   
   train:
     tsv_path: ${datamodule.path_header}train.tsv
