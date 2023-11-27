@@ -86,5 +86,5 @@ model_params:
   
   # for gradient inner product logging in val step 
   log_gradient_stats: True
-  num_steps_log_gradient_stats: 4
-  log_gradient_stats_batch_size: 32
+  num_steps_log_gradient_stats: 8
+  log_gradient_stats_batch_size: 64

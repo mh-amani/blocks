@@ -31,13 +31,12 @@ datamodule:
     remove_long_data_points: False
     # print_max_lengths: True # uncomment to print max lengths of x and z, given current tokenizing strategy/configs
 
-
 model:
   model_params:
     # for gradient inner product logging in val step 
     log_gradient_stats: True
     num_steps_log_gradient_stats: 4
-    log_gradient_stats_batch_size: 8
+    log_gradient_stats_batch_size: 32
 
     acc_grad_batch: 8
     num_bootstrap_tests: 10
