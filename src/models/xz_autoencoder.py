@@ -13,6 +13,8 @@ import numpy as np
 from torchmetrics.wrappers import BootStrapper
 import torchmetrics
 import code
+import gc
+# from memory_profiler import profile
 
 class XZAutoencoder(LightningModule):
     def __init__(self, **kwargs) -> None:
@@ -109,6 +111,8 @@ class XZAutoencoder(LightningModule):
         self.log_gradient_stats = self.hparams.model_params.log_gradient_stats
         self.num_steps_log_gradient_stats = self.hparams.model_params.num_steps_log_gradient_stats
         self.log_gradient_stats_batch_size = self.hparams.model_params.log_gradient_stats_batch_size
+
+        self.aggregated_grads = {}
                     
     def setup(self, stage: str) -> None:
         
@@ -159,7 +163,7 @@ class XZAutoencoder(LightningModule):
         
         return(id, score, quantized_vector, quantization_loss, current_eos_flag, past_key_values)
 
-
+    # @profile
     def sequential_forward(self, model, discretizer, input_embeds, input_attention_mask, output_embeds, max_length, output_attention_mask=None):
         
         eos_flag = torch.zeros(output_embeds.shape[0], 1, device=input_embeds.device)
@@ -287,9 +291,9 @@ class XZAutoencoder(LightningModule):
         x_ids = batch['x_ids']
         z_ids = batch['z_ids']
 
-        self.log(f"{stage}/x_data_available", float(data_type[0]), batch_size=self.batch_size)
-        self.log(f"{stage}/z_data_available", float(data_type[1]), batch_size=self.batch_size)
-        self.log('global_step', float(self.global_step), batch_size=self.batch_size)
+        self.log(f"{stage}/x_data_available", float(data_type[0]), batch_size=self.batch_size, sync_dist=True)
+        self.log(f"{stage}/z_data_available", float(data_type[1]), batch_size=self.batch_size, sync_dist=True)
+        self.log('global_step', float(self.global_step), batch_size=self.batch_size, sync_dist=True)
         
         outputs = {}
         outputs['supervised_seperated'] = None
@@ -340,10 +344,10 @@ class XZAutoencoder(LightningModule):
         loss = 0 
         for key in losses:
             if losses[key] is not None and self.loss_coeff.get(key) is not None:
-                self.log(f'{stage}/loss/{key}', losses[key], batch_size=self.batch_size)
+                self.log(f'{stage}/loss/{key}', losses[key], batch_size=self.batch_size, sync_dist=True)
                 loss += (self.loss_coeff[key]>0) * self.loss_coeff[key] * losses[key]  
 
-        self.log(name=f'{stage}/loss', value=loss, batch_size=self.batch_size, prog_bar=True)  
+        self.log(name=f'{stage}/loss', value=loss, batch_size=self.batch_size, prog_bar=True, sync_dist=True)  
         
         # for key in outputs:
         #     if outputs[key] is not None:
@@ -355,16 +359,19 @@ class XZAutoencoder(LightningModule):
     
             
     def training_step(self, batch, batch_idx):
+        if self.hparams.model_params.get('use_pc_grad', False):
+            self.pc_grad_update(batch, batch_idx)
+        else:
+            self.gd_update(batch, batch_idx)
+
+    def gd_update(self, batch, batch_idx):
         loss, _, _ = self.forward(batch)
         loss = loss / self.acc_grad_batch * 1.0
-        
-        optimizers = self.optimizers()
-        for optimizer in optimizers:
-            optimizer.zero_grad()
         
         self.manual_backward(loss)
     
         if (batch_idx + 1) % self.acc_grad_batch == 0:
+            optimizers = self.optimizers()
             for optimizer in optimizers:
                 self.clip_gradients(optimizer, gradient_clip_val=0.5, gradient_clip_algorithm="norm")
                 optimizer.step()
@@ -375,13 +382,61 @@ class XZAutoencoder(LightningModule):
         
         return loss
 
+    def pc_grad_update(self, batch, batch_idx):
+        _, losses, _ = self.forward(batch)
+        valid_loss_names = ['supervised_seperated_x', 'supervised_seperated_z', 'zxz', 'xzx']
+        losses = {key: self.loss_coeff[key] * value / self.acc_grad_batch * 1.0 for key, value in losses.items() if value is not None and key in valid_loss_names}
+        num_losses = len(losses)
+        # Calculate gradients for each loss separately and store them
+        gradient_dict = {}
+        
+        for i, loss_name in enumerate(losses):
+            retain_graph = i < num_losses - 1
+            self.manual_backward(losses[loss_name], retain_graph=retain_graph)
+            gradient_dict[loss_name] = {name: param.grad.clone() for name, param in self.named_parameters() if param.grad is not None}
 
+            # Zero out gradients after each backward pass
+            self.zero_grad()
+
+        for loss_name, grad in gradient_dict.items():
+            for other_loss_name, other_grad in gradient_dict.items():
+                if loss_name != other_loss_name:
+                    shared_params = set.intersection(set(grad.keys()), set(other_grad.keys()))
+                    # Check for conflict and project gradients
+                    inner_product = sum((grad[name] * other_grad[name]).sum() for name in shared_params)                    
+                    if inner_product < 0:
+                        for name in shared_params:
+                            grad[name] -= (inner_product / (other_grad[name].norm() ** 2)) * other_grad[name]
+
+        # Aggregate the projected gradients
+        for loss_name in gradient_dict:
+            for name in gradient_dict[loss_name]:
+                if name in self.aggregated_grads:
+                    self.aggregated_grads[name] += gradient_dict[loss_name][name]
+                else:
+                    self.aggregated_grads[name] = gradient_dict[loss_name][name]
+        
+        if (batch_idx + 1) % self.acc_grad_batch == 0:
+            for name, param in self.named_parameters():
+                if name in self.aggregated_grads:
+                    param.grad = self.aggregated_grads[name]
+            
+            optimizers = self.optimizers()
+            for optimizer in optimizers:  
+                self.clip_gradients(optimizer, gradient_clip_val=0.5, gradient_clip_algorithm="norm")
+                optimizer.step()
+                optimizer.zero_grad()
+
+            self.aggregated_grads = {}
+
+
+        
     def on_train_epoch_end(self):
         schedulers = self.lr_schedulers()
         for id, scheduler in enumerate(schedulers):
             # If the selected scheduler is a ReduceLROnPlateau scheduler.
             scheduler.step(self.trainer.callback_metrics[self.hparams.lr_scheduler.monitor])
-            self.log(name=f'lr-scheduler/{self.module_names[id]}', value=scheduler._last_lr[0], batch_size=self.batch_size)
+            self.log(name=f'lr-scheduler/{self.module_names[id]}', value=scheduler._last_lr[0], batch_size=self.batch_size, sync_dist=True)
 
         # self.correct_predictions_mask()
         # print('-------on train epoch end------')
@@ -481,10 +536,10 @@ class XZAutoencoder(LightningModule):
         self.manual_accuracy_sentence[sentence_acc_name]['total'] += len(ids)
         
 
-        # self.accuracy[acc_name].update(hat_ids.reshape(-1), ids.reshape(-1))
-        # self.accuracy_sentence[sentence_acc_name].update(hat_ids, ids)
-        # self.log(acc_name, self.accuracy[acc_name], batch_size=self.batch_size, )
-        # self.log(sentence_acc_name, self.accuracy_sentence[sentence_acc_name], batch_size=self.batch_size)
+        self.accuracy[acc_name].update(hat_ids.reshape(-1), ids.reshape(-1))
+        self.accuracy_sentence[sentence_acc_name].update(hat_ids, ids)
+        self.log(acc_name, self.accuracy[acc_name], batch_size=self.batch_size, sync_dist=True)
+        self.log(sentence_acc_name, self.accuracy_sentence[sentence_acc_name], batch_size=self.batch_size, sync_dist=True)
 
         if sentence_acc_name.startswith('val/autoreg_hidden_layer/sentence-accuracy/X'):
             wrong_prediction = torch.where(torch.logical_not(torch.eq(hat_ids, ids).all(axis=-1)))
@@ -531,23 +586,24 @@ class XZAutoencoder(LightningModule):
                         [cosine_similarity(gradient_dict[loss1][param_name], gradient_dict[loss2][param_name])
                          for param_name in shared_params]
                     ))
-        return {'cosine_similarities': similarities, 'grad_norm_means': grad_norm_means, 'grad_norm_stds': grad_norm_stds}
+        return {'cosine_similarities': similarities, 'grad_norm_rms': grad_norm_means, 'grad_norm_stds_across_parameter': grad_norm_stds}
 
 
     def validation_step(self, batch, batch_idx):
         self.compute_accuracy_measures(batch, batch_idx, stage='val')
 
+    # @profile
     def on_validation_epoch_end(self):
         # self.correct_predictions_mask()
         for key in self.manual_accuracy:
             if self.manual_accuracy[key]['total'] > 0:   
-                self.log('manual/' + key, self.manual_accuracy[key]['correct']/self.manual_accuracy[key]['total'], batch_size=self.batch_size)
+                self.log('manual/' + key, self.manual_accuracy[key]['correct']/self.manual_accuracy[key]['total'], batch_size=self.batch_size, sync_dist=True)
                 # if key.startswith('val/autoreg_hidden_layer'):
                     # print('manual/' + key, self.manual_accuracy[key]['correct']/self.manual_accuracy[key]['total'])
             self.manual_accuracy[key] = {'correct': 0, 'total': 0}
         for key in self.manual_accuracy_sentence:
             if self.manual_accuracy_sentence[key]['total'] > 0:
-                self.log('manual/' + key, self.manual_accuracy_sentence[key]['correct']/self.manual_accuracy_sentence[key]['total'], batch_size=self.batch_size)
+                self.log('manual/' + key, self.manual_accuracy_sentence[key]['correct']/self.manual_accuracy_sentence[key]['total'], batch_size=self.batch_size, sync_dist=True)
                 # if key.startswith('val/autoreg_hidden_layer'):
                     # print('manual/' + key, self.manual_accuracy_sentence[key]['correct']/self.manual_accuracy_sentence[key]['total'])
             self.manual_accuracy_sentence[key] = {'correct': 0, 'total': 0}
@@ -560,40 +616,46 @@ class XZAutoencoder(LightningModule):
 
             for batch in self.log_gradient_dataloader:
                 # sending to device
-                for key in batch:
-                    if isinstance(batch[key], torch.Tensor):
-                        batch[key] = batch[key].to(self.device)
+                # for key in batch:
+                #     if isinstance(batch[key], torch.Tensor):
+                #         batch[key] = batch[key].to(self.device)
+                batch = self.trainer.datamodule.transfer_batch_to_device(batch, device=self.device, dataloader_idx=0)
                 # Forward pass to compute losses
-                _, losses, outputs = self.forward(batch, stage='val')
-
+                _, losses, _ = self.forward(batch, stage='val')
+            
                 # Calculate gradients for each loss separately and store them
                 gradient_dict = {}
                 for loss_name in ['supervised_seperated_x', 'supervised_seperated_z', 'zxz', 'xzx']:
                     if losses[loss_name] is not None:
-                        self.manual_backward(losses[loss_name], retain_graph=True)
-                        gradient_dict[loss_name] = {name: param.grad.clone() for name, param in self.named_parameters() if param.grad is not None}
-
+                        self.manual_backward(losses[loss_name], retain_graph=(loss_name != 'xzx'))
+                        gradient_dict[loss_name] = {name: param.grad for name, param in self.named_parameters() if param.grad is not None}
                         # Zero out gradients after each backward pass
                         self.zero_grad()
+                        torch.cuda.empty_cache()
+                        gc.collect()
+                        
 
                 # Calculate cosine similarity between gradients of different losses
                 grad_stat = self.calculate_gradient_stats(gradient_dict)
+                
+                del gradient_dict
                 if 'grad_stats' not in locals():
-                    grad_stats = grad_stat  
+                    grad_stats = {key: {subkey: [grad_stat[key][subkey]] for subkey in grad_stat[key].keys()} for key in grad_stat.keys()}
                 else:
                     for key in grad_stats.keys():
-                        grad_stats[key] = {subkey: grad_stats[key][subkey] + grad_stat[key][subkey] for subkey in grad_stat[key].keys()}
+                        for subkey in grad_stats[key].keys():
+                            grad_stats[key][subkey].append(grad_stat[key][subkey])
+                del grad_stat
+                torch.cuda.empty_cache()
+                gc.collect()
 
-            # Average over all batches
+            # log mean and std of cosine similarity and gradient norms
             for key in grad_stats.keys():
-                grad_stats[key] = {subkey: grad_stats[key][subkey] / self.num_steps_log_gradient_stats for subkey in grad_stats[key].keys()}
-            for key in grad_stats['cosine_similarities']:
-                self.log(f'val/gradient_stats/cosine_sim/{key}', grad_stats['cosine_similarities'][key], batch_size=self.batch_size)
-            for key in grad_stats['grad_norm_means']:
-                self.log(f'val/gradient_stats/gradient_rms_mean/{key}', grad_stats['grad_norm_means'][key], batch_size=self.batch_size)
-            for key in grad_stats['grad_norm_stds']:
-                self.log(f'val/gradient_stats/gradient_rms_std/{key}', grad_stats['grad_norm_stds'][key], batch_size=self.batch_size)
-
+                for subkey in grad_stats[key].keys():
+                    grad_stats[key][subkey] = torch.stack(grad_stats[key][subkey])
+                    self.log(f'gradient_stats/{key}/{subkey}/mean', torch.mean(grad_stats[key][subkey]), batch_size=self.batch_size, sync_dist=True)
+                    self.log(f'gradient_stats/{key}/{subkey}/std', torch.std(grad_stats[key][subkey]), batch_size=self.batch_size, sync_dist=True)
+            
             # Disable gradient computation as it's typically not needed after this
             torch.set_grad_enabled(False)
             self.eval()
@@ -669,11 +731,11 @@ class XZAutoencoder(LightningModule):
         # self.correct_predictions_mask()
         for key in self.manual_accuracy:
             if self.manual_accuracy[key]['total'] > 0:   
-                self.log('manual/' + key, self.manual_accuracy[key]['correct']/self.manual_accuracy[key]['total'], batch_size=self.batch_size)
+                self.log('manual/' + key, self.manual_accuracy[key]['correct']/self.manual_accuracy[key]['total'], batch_size=self.batch_size, sync_dist=True)
             self.manual_accuracy[key] = {'correct': 0, 'total': 0}
         for key in self.manual_accuracy_sentence:
             if self.manual_accuracy_sentence[key]['total'] > 0:
-                self.log('manual/' + key, self.manual_accuracy_sentence[key]['correct']/self.manual_accuracy_sentence[key]['total'], batch_size=self.batch_size)
+                self.log('manual/' + key, self.manual_accuracy_sentence[key]['correct']/self.manual_accuracy_sentence[key]['total'], batch_size=self.batch_size, sync_dist=True)
             self.manual_accuracy_sentence[key] = {'correct': 0, 'total': 0}
         # dict = self.correct_predictions_mask(self.trainer.datamodule.test_dataloader())
         # print('test_stats:', dict)

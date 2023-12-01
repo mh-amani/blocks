@@ -7,7 +7,7 @@ wandb:
   save_dir: "."
   offline: False # set True to store all logs only locally
   id: null # A unique ID for this run, used for resuming! See guide for resuming runs...
-  entity: null # set to name of your wandb team
+  entity: sigmae # set to name of your wandb team
   log_model: False
   job_type: "train" # Specify the type of run, which is useful when you're grouping runs together into larger experiments using group
   group: ""
