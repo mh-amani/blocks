@@ -59,6 +59,16 @@ modules:
       activation_function: 'gelu_new'
 
 model_params:
+  use_pc_grad: False
+
+  # for gradient inner product logging in val step 
+  log_gradient_stats: False
+  num_steps_log_gradient_stats: 8
+  log_gradient_stats_batch_size: 32
+
+  acc_grad_batch: 1
+  num_bootstrap_tests: 10
+
   max_x_length: 100
   max_x_vocab_size: 200
   max_z_length: 100
@@ -78,13 +88,7 @@ model_params:
     quantization_zxz: 1.0
     quantization_xzx: 1.0
   
-  acc_grad_batch: 1
-  num_bootstrap_tests: 10
   use_tokenizer_vocab_len: true
   disc_x_vocab_size: -1
   disc_z_vocab_size: -1
   
-  # for gradient inner product logging in val step 
-  log_gradient_stats: True
-  num_steps_log_gradient_stats: 8
-  log_gradient_stats_batch_size: 64

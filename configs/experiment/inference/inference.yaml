@@ -33,6 +33,15 @@ model:
   checkpoint_path: ???
   substitute_config:
     model_params:
+
+      use_pc_grad: False
+
+      # for gradient inner product logging in val step 
+      log_gradient_stats: False
+      num_steps_log_gradient_stats: 8
+      log_gradient_stats_batch_size: 32
+
+      
       num_bootstrap_tests: 10    
       max_x_length: 20
       max_x_vocab_size: 25
