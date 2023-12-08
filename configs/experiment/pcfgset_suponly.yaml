@@ -28,15 +28,15 @@ datamodule:
     supervision_ratio: [0.2, 0.5] # [r(xz), r(z|not xz)]
     batch_size: 256
     num_workers: 8
-    remove_long_data_points: False
+    remove_long_data_points: True
     # print_max_lengths: True # uncomment to print max lengths of x and z, given current tokenizing strategy/config
 
 model:
   model_params:
     # for gradient inner product logging in val step 
-    log_gradient_stats: True
+    log_gradient_stats: False
     num_steps_log_gradient_stats: 4
-    log_gradient_stats_batch_size: 32
+    log_gradient_stats_batch_size: 8
 
     acc_grad_batch: 8
     num_bootstrap_tests: 10

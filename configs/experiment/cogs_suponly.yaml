@@ -35,7 +35,7 @@ datamodule:
 model:
   model_params:
     # for gradient inner product logging in val step 
-    log_gradient_stats: True
+    log_gradient_stats: False
     num_steps_log_gradient_stats: 4
     log_gradient_stats_batch_size: 32
 
