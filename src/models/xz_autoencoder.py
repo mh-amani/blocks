@@ -126,6 +126,14 @@ class XZAutoencoder(LightningModule):
                 collate_fn=self.collator.collate_fn
             )
 
+        # # to avoid error on first epoch when training, when there is no validation metric yet
+        # lr_scheduler_monitor = self.hparams.lr_scheduler.get('monitor', 'val/loss')
+        # if self.trainer.callback_metrics.get(lr_scheduler_monitor) is None:
+        #     self.trainer.callback_metrics[lr_scheduler_monitor] = 1000
+        
+        # print(self.trainer.callback_metrics)
+
+
         # numclasses = max(self.collator.tokenizer_x.get_vocab_size(), self.collator.tokenizer_z.get_vocab_size())
         # self.accuracy = {}
         # self.accuracy_sentence = {}
@@ -311,7 +319,7 @@ class XZAutoencoder(LightningModule):
         losses['quantization_zxz'] = None
         
         # Supervision on Z and Supervision on X seperately
-        if (data_type[0] and data_type[1]) and (stage!='train' or self.usexz):
+        if (data_type[0] and data_type[1] and self.usexz) or stage!='train':
             output_supervised_seperated = self.forward_supervised_seperated(x_ids, z_ids)
 
             loss_x = self.loss(torch.log(output_supervised_seperated['x_hat_scores'][:, :-1, :]).permute(0, 2, 1), x_ids[:, 1:])
@@ -343,9 +351,10 @@ class XZAutoencoder(LightningModule):
       
         loss = 0 
         for key in losses:
-            if losses[key] is not None and self.loss_coeff.get(key) is not None:
+            if losses[key] is not None:
                 self.log(f'{stage}/loss/{key}', losses[key], batch_size=self.batch_size, sync_dist=True)
-                loss += (self.loss_coeff[key]>0) * self.loss_coeff[key] * losses[key]  
+                if self.loss_coeff.get(key) is not None:
+                    loss += (self.loss_coeff[key]>0) * self.loss_coeff[key] * losses[key]  
 
         self.log(name=f'{stage}/loss', value=loss, batch_size=self.batch_size, prog_bar=True, sync_dist=True)  
         
@@ -400,7 +409,7 @@ class XZAutoencoder(LightningModule):
 
         for loss_name, grad in gradient_dict.items():
             for other_loss_name, other_grad in gradient_dict.items():
-                if loss_name != other_loss_name:
+                if loss_name != other_loss_name and (loss_name.startswith('supervised_seperated') and other_loss_name.startswith('supervised_seperated')):
                     shared_params = set.intersection(set(grad.keys()), set(other_grad.keys()))
                     # Check for conflict and project gradients
                     inner_product = sum((grad[name] * other_grad[name]).sum() for name in shared_params)                    
@@ -438,6 +447,7 @@ class XZAutoencoder(LightningModule):
             scheduler.step(self.trainer.callback_metrics[self.hparams.lr_scheduler.monitor])
             self.log(name=f'lr-scheduler/{self.module_names[id]}', value=scheduler._last_lr[0], batch_size=self.batch_size, sync_dist=True)
 
+        # print(self.trainer.callback_metrics)
         # self.correct_predictions_mask()
         # print('-------on train epoch end------')
         # dict = self.correct_predictions_mask(self.trainer.datamodule.test_dataloader())

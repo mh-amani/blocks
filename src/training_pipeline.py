@@ -27,6 +27,9 @@ def train(config: DictConfig) -> Optional[float]:
     if config.get("seed"):
         seed_everything(config.seed, workers=True)
 
+    use_ddp = config.trainer.get('strategy', False)
+    print("use_ddp",use_ddp)
+
     # print current working directory
     log.info(f"Current working directory: {os.getcwd()}")
 
@@ -37,7 +40,7 @@ def train(config: DictConfig) -> Optional[float]:
 
     # Initialize the LIT data module
     log.info(f"Instantiating data module <{config.datamodule._target_}>")
-    datamodule: LightningDataModule = hydra.utils.instantiate(config.datamodule, _recursive_=False)
+    datamodule: LightningDataModule = hydra.utils.instantiate(config.datamodule, use_ddp=use_ddp, _recursive_=False)
 
     # Initialize the LIT model
     log.info(f"Instantiating model <{config.model._target_}>")

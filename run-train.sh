@@ -26,8 +26,8 @@
 # -------------------------------------------------------------------------------------------------------------------- #
 # ----------------------------------------------- SCAN --------------------------------------------------------------- #
 
-DEVICE=2 
-BSIZE=256
+DEVICE=1
+BSIZE=128
 DISC='vqvae' # 'gumbel' or 'vqvae' or 'softmax'
 
 
@@ -45,14 +45,21 @@ python3 run_train.py +experiment=scan_suponly.yaml datamodule.dataset_parameters
 CKPT="'/dlabdata1/masani/blocks/logs/training/runs/scan/suponly-[0.04, 0.9]-gpt2_gpt2-vqvae/2023-11-17_15-44-19/checkpoints/last.ckpt'"
 # 8 layer model:
 CKPT="'/dlabdata1/masani/blocks/logs/training/runs/scan/suponly-[0.04, 0.9]-gpt2_gpt2-vqvae/2023-11-21_14-02-58/checkpoints/last.ckpt'"
+
+
+
 python3 run_train.py +experiment=scan_curriculum.yaml datamodule.dataset_parameters.supervision_ratio=[0.04,0.9] trainer.devices=[$DEVICE] datamodule.dataset_parameters.batch_size=$BSIZE sequence_to_sequence_model_key=gpt2_gpt2 discretizer_key=$DISC model.checkpoint_path="$CKPT" +test=True
 python3 run_train.py +experiment=scan_curriculum.yaml datamodule.dataset_parameters.supervision_ratio=[0.04,0.9] trainer.devices=[$DEVICE] datamodule.dataset_parameters.batch_size=$BSIZE sequence_to_sequence_model_key=gpt2_gpt2 discretizer_key=$DISC model.checkpoint_path="$CKPT" model/lr_scheduler=cosine_annealing +test=True
 
-# only zxz unsup training:
+
+# only zxz, or otherwise mixed unsup training:
 python3 run_train.py +experiment=scan_mixed.yaml datamodule.dataset_parameters.supervision_ratio=[0.04,0.99] model/discretizer=$DISC trainer.devices=$DEVICE datamodule.dataset_parameters.batch_size=$BSIZE +test=True trainer=ddp || true
 
+
+
 # testing
-python3 run_inference.py +experiment/inference=inference datamodule=scan datamodule.dataset_parameters.supervision_ratio=[0.01,0.9] trainer.devices=[$DEVICE] training_type=suponly datamodule.dataset_parameters.batch_size=$BSIZE sequence_to_sequence_model_key=gpt2_gpt2 discretizer_key=$DISC model.checkpoint_path="$CKPT" || true
+CKPT="'/dlabdata1/masani/blocks/logs/training/runs/scan/mixed-[0.04, 0.99]-gpt2_gpt2-vqvae/2023-12-05_10-22-26/checkpoints/last.ckpt'"
+python3 run_inference.py +experiment/inference=inference datamodule=scan datamodule.dataset_parameters.supervision_ratio=[0.04,0.9] trainer.devices=[$DEVICE] training_type=suponly datamodule.dataset_parameters.batch_size=$BSIZE sequence_to_sequence_model_key=gpt2_gpt2 discretizer_key=$DISC model.checkpoint_path="$CKPT" || true
 
 
 # -------------------------------------------------------------------------------------------------------------------- #
@@ -60,7 +67,7 @@ python3 run_inference.py +experiment/inference=inference datamodule=scan datamod
 # ----------------------------------------------- sfst --------------------------------------------------------------- #
 # # supervised:
 DEVICE=0
-BSIZE=128
+BSIZE=256
 DISC='vqvae' # 'gumbel' or 'vqvae' or 'softmax'
 
 

@@ -12,7 +12,7 @@ defaults:
 
 # name of the run determines folder name in logs
 name: "scan_sigmae"
-run_name: "suponly-${datamodule.dataset_parameters.supervision_ratio}-${model.sequence_to_sequence_model.key}-${model.discretizer.key}" 
+run_name: "mixed-${datamodule.dataset_parameters.supervision_ratio}-${model.sequence_to_sequence_model.key}-${model.discretizer.key}" 
 
 track_gradients: Yes
 overfit_batch: 0
@@ -51,16 +51,16 @@ model:
 
     usexz: True
     usex: False
-    usez: False
+    usez: True
 
     loss_coeff:
-      xzx: 1.0
-      zxz: 1.0
+      xzx: 0.05
+      zxz: 0.1
       supervised_seperated_x: 1.0
       supervised_seperated_z: 1.0
       quantization_zxz: 0.0                                                                                                                                                                                                                                                                                                         
       quantization_xzx: 0.0
-      quantization_supervised_seperated: 0.5
+      quantization_supervised_seperated: 1.0
 
   optimizer:
     lr: 0.005
@@ -81,14 +81,14 @@ callbacks:
     scheduler_xz:
       num_warmup_steps: 1
       num_training_steps: 100
-      hp_init: 0.1
-      hp_end: 0.1
+      hp_init: 0.9
+      hp_end: 0.9
     scheduler_z:
       # between 0 and 1, saying given that a sample is not xz, how likely is it to be z.
       num_warmup_steps: 1
       num_training_steps: 100
-      hp_init: 1.0
-      hp_end: 1.0
+      hp_init: 0.9
+      hp_end: 0.9
 
 
 logger:

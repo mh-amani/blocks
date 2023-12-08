@@ -8,7 +8,7 @@ import numpy as np
 
 from pytorch_lightning import LightningDataModule
 from torch.utils.data import DataLoader, Dataset
-from src.utils.datamodule import randomSupervisionSampler
+from src.utils.datamodule import randomSupervisionSampler, randomSupervisionSamplerDDP
 
 from src.utils.general import get_pylogger
 
@@ -218,10 +218,15 @@ class AbstractPLDataModule(LightningDataModule, ABC):
         g = torch.Generator()
         g.manual_seed(self.seed)
 
-        self.train_sampler = randomSupervisionSampler(
-            self.data_train, self.data_type_sampling_probability, generator=g, 
-            batch_size=self.dataset_parameters["batch_size"])
-        
+        if self.params.get('use_ddp', False):
+            self.train_sampler = randomSupervisionSamplerDDP(
+                dataset=self.data_train, data_type_sampling_probability=self.data_type_sampling_probability, 
+                batch_size=self.dataset_parameters["batch_size"])
+        else:
+            self.train_sampler = randomSupervisionSampler(
+                self.data_train, self.data_type_sampling_probability,  
+                batch_size=self.dataset_parameters["batch_size"], generator=g)
+
         return DataLoader(
             dataset=self.data_train,
             batch_size=self.dataset_parameters["batch_size"],
