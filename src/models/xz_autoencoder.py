@@ -206,7 +206,7 @@ class XZAutoencoder(LightningModule):
             
             eos_flag = torch.logical_or(eos_flag, current_eos_flag)
             output_attention_mask = torch.cat((output_attention_mask, torch.logical_not(eos_flag)), dim=1)
-            quantization_loss += (current_quantization_loss * torch.logical_not(eos_flag).float()).sum()
+            quantization_loss += (current_quantization_loss * torch.logical_not(eos_flag).float())
         
         return id, score, quantized_vector, quantization_loss.sum()/output_attention_mask.sum() , output_attention_mask, eos_flag
         
@@ -236,14 +236,15 @@ class XZAutoencoder(LightningModule):
         z_embeds = torch.cat((self.disc_z.embed_enc_from_id(self.bos_token_id * torch.ones(z_embeds.shape[0], 1, device=z_embeds.device, dtype=torch.long)), quantized_z_embeds), dim=1)
         z_attention_mask = torch.cat((torch.ones(z_attention_mask.shape[0], 1, device=z_attention_mask.device, dtype=torch.bool), z_attention_mask), dim=1)
 
-        x_hat_ids, x_hat_scores, _, x_quantization_loss = self.disc_x(self.model_z_to_x(inputs_embeds=z_embeds, attention_mask=z_attention_mask,
+        out_x = self.model_z_to_x(inputs_embeds=z_embeds, attention_mask=z_attention_mask,
                                                 decoder_inputs_embeds=x_embeds_dec, decoder_attention_mask=x_attention_mask,
-                                                output_hidden_states = True)['decoder_hidden_states'][-1])
+                                                output_hidden_states = True)['decoder_hidden_states'][-1][:, :-1, :]
         
-        x_quantization_loss = (x_quantization_loss * x_attention_mask).sum() / x_attention_mask.sum()
+        x_hat_ids, x_hat_scores, _, x_quantization_loss = self.disc_x(out_x, supervision=True, true_ids=x_ids[:, 1:])
+        x_quantization_loss = (x_quantization_loss * x_attention_mask[:, 1:]).sum() / x_attention_mask[:, 1:].sum()
         quantization_loss = z_quantization_loss + x_quantization_loss
         
-        return {'x_hat_ids': x_hat_ids[:, :-1], 'x_hat_scores':x_hat_scores[:, :-1, :], 
+        return {'x_hat_ids': x_hat_ids, 'x_hat_scores':x_hat_scores, 
                 'z_hat_ids': z_ids, 'z_hat_scores': z_scores, 'quantization_loss': quantization_loss}     
 
 
@@ -266,15 +267,17 @@ class XZAutoencoder(LightningModule):
         x_embeds = torch.cat((self.disc_x.embed_enc_from_id(self.bos_token_id * torch.ones(x_embeds.shape[0], 1, device=x_embeds.device, dtype=torch.long)), quantized_x_embeds), dim=1)
         x_attention_mask = torch.cat((torch.ones(x_attention_mask.shape[0], 1, device=x_attention_mask.device, dtype=torch.bool), x_attention_mask), dim=1)
 
-        z_hat_ids, z_hat_scores, _ , z_quantization_loss = self.disc_z(self.model_x_to_z(inputs_embeds=x_embeds, attention_mask=x_attention_mask,
+        out_z = self.model_x_to_z(inputs_embeds=x_embeds, attention_mask=x_attention_mask,
                                                 decoder_inputs_embeds=z_embeds_dec, decoder_attention_mask=z_attention_mask,
-                                                output_hidden_states = True)['decoder_hidden_states'][-1])
+                                                output_hidden_states = True)['decoder_hidden_states'][-1][:, :-1, :]
 
-        z_quantization_loss = (z_quantization_loss * z_attention_mask).sum() / z_attention_mask.sum()
+        z_hat_ids, z_hat_scores, _ , z_quantization_loss  = self.disc_z(out_z, supervision=True, true_ids=z_ids[:, 1:])
+
+        z_quantization_loss = (z_quantization_loss * z_attention_mask[:, 1:]).sum() / z_attention_mask[:, 1:].sum()
         quantization_loss = z_quantization_loss + x_quantization_loss
 
         return {'x_hat_ids': x_ids, 'x_hat_scores': x_scores,
-                'z_hat_ids': z_hat_ids[:, :-1], 'z_hat_scores': z_hat_scores[:, :-1, :], 'quantization_loss': quantization_loss}
+                'z_hat_ids': z_hat_ids, 'z_hat_scores': z_hat_scores, 'quantization_loss': quantization_loss}
          
 
     def forward_supervised_seperated(self, x_ids, z_ids):
