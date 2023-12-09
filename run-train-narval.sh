@@ -54,7 +54,7 @@ BSIZE=100
 DISC='vqvae' # 'gumbel' or 'vqvae' or 'softmax'
 
 # mixed
-# python3 run_train.py +experiment=pcfgset_mixed.yaml datamodule.dataset_parameters.supervision_ratio=[0.04,0.99] model/discretizer=$DISC trainer.devices=$DEVICE datamodule.dataset_parameters.batch_size=$BSIZE +test=True trainer=ddp datamodule.dataset_parameters.num_workers=1 model.optimizer.lr=0.005 || true
+# python3 run_train.py +experiment=pcfgset_mixed.yaml datamodule.dataset_parameters.supervision_ratio=[0.04,0.99] model/discretizer=$DISC trainer.devices=$DEVICE datamodule.dataset_parameters.batch_size=$BSIZE +test=True trainer=ddp datamodule.dataset_parameters.num_workers=1 model.optimizer.lr=0.001 || true
 
 
 # -------------------------------------------------------------------------------------------------------------------- #
