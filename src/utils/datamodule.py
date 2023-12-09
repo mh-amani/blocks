@@ -41,7 +41,7 @@ class randomSupervisionSampler(Sampler):
         self.generator = torch.Generator()
         self.generator.manual_seed(self.seed)
         # self.generator = generator
-        
+        self.state_list = []
     @property
     def num_samples(self) -> int:
         # dataset size might change at runtime
@@ -52,12 +52,18 @@ class randomSupervisionSampler(Sampler):
         # DistributedSampler pytorch implemention __iter__
         # https://pytorch.org/docs/stable/_modules/torch/utils/data/distributed.html#DistributedSampler
         
-        g = self.generator
+        # g = self.generator
 
-        # g = torch.Generator()
-        # g.manual_seed(self.seed + self.epoch)
+        g = torch.Generator()
+        g.manual_seed(self.seed + self.epoch)
 
         # print(g.get_state())
+        # self.state_list.append(g.get_state())
+        # check if elements of the seed are the same or not
+        # for i in range(0, len(self.state_list)):
+            # print(torch.all(self.state_list[-1] == self.state_list[i]))
+
+
         # print(g.seed())
 
         coin_tosses = torch.rand(size=(self.num_batch_iters, ), generator=g).tolist()

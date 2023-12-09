@@ -179,12 +179,11 @@ class XZAutoencoder(LightningModule):
         quantization_loss = 0
 
         # first step to get the past_key_values
-        id, score, quantized_vector, current_quantization_loss, current_eos_flag, past_key_values = \
+        id, score, quantized_vector, quantization_loss, eos_flag, past_key_values = \
             self.one_step_sequential_forward(model, discretizer, input_embeds, input_attention_mask,
                                                     output_embeds, output_attention_mask=output_attention_mask)
         
-        quantization_loss += current_quantization_loss
-
+        quantization_loss = quantization_loss * torch.logical_not(eos_flag)
         # if self.decode_after_autoreg_step:
         output_embed = discretizer.discrete_embedding_to_decoder(quantized_vector)
 
@@ -192,7 +191,6 @@ class XZAutoencoder(LightningModule):
         counter = 1
         
         while output_attention_mask.shape[1] < max_length and not torch.all(eos_flag):
-            counter +=1
             current_id, current_score, current_quantized_vector, current_quantization_loss, current_eos_flag, past_key_values = \
             self.one_step_sequential_forward(model, discretizer, input_embeds, input_attention_mask,
                                                     output_embed, output_attention_mask=torch.logical_not(eos_flag),
@@ -202,15 +200,15 @@ class XZAutoencoder(LightningModule):
             id = torch.cat((id, current_id), dim=1)
             score = torch.cat((score, current_score), dim=1)
             quantized_vector = torch.cat((quantized_vector, current_quantized_vector), dim=1)
-            quantization_loss += current_quantization_loss
             
             # if self.decode_after_autoreg_step:
             output_embed = discretizer.discrete_embedding_to_decoder(current_quantized_vector)
-
+            
             eos_flag = torch.logical_or(eos_flag, current_eos_flag)
             output_attention_mask = torch.cat((output_attention_mask, torch.logical_not(eos_flag)), dim=1)
+            quantization_loss += (current_quantization_loss * torch.logical_not(eos_flag).float()).sum()
         
-        return id, score, quantized_vector, quantization_loss/counter , output_attention_mask, eos_flag
+        return id, score, quantized_vector, quantization_loss.sum()/output_attention_mask.sum() , output_attention_mask, eos_flag
         
 
     
@@ -220,54 +218,63 @@ class XZAutoencoder(LightningModule):
         # xz_out = self.model_x_to_z(inputs_embeds=x_embeds, decoder_inputs_embeds=x_embeds, output_hidden_states = True)['decoder_hidden_states'][-1]
         # xz_out = self.model_x_to_z.generate(inputs_embeds=x_embeds, max_length=x_embeds.shape[1], do_sample=False, output_hidden_states=True)
 
-        x_embeds = self.disc_x.embed_enc_from_id(x_ids)
+        x_embeds_enc = self.disc_x.embed_enc_from_id(x_ids)
         x_attention_mask = torch.logical_not(torch.eq(x_ids, self.pad_token_id))
 
-        output_attention_mask = torch.ones(x_embeds.shape[0], 1, device=x_embeds.device)
+        output_attention_mask = torch.ones(x_embeds_enc.shape[0], 1, device=x_embeds_enc.device)
 
-        z_ids = self.bos_token_id * torch.ones(x_embeds.shape[0], 1, device=x_embeds.device, dtype=torch.long)
+        z_ids = self.bos_token_id * torch.ones(x_embeds_enc.shape[0], 1, device=x_embeds_enc.device, dtype=torch.long)
         z_scores = torch.nn.functional.one_hot(z_ids, num_classes=self.disc_z.vocab_size).float()
         z_embeds = self.disc_z.embed_dec_from_id(z_ids)
         
         z_ids, z_scores, quantized_vector, z_quantization_loss, z_attention_mask, eos_flag = \
-            self.sequential_forward(self.model_x_to_z, self.disc_z, x_embeds, x_attention_mask, z_embeds, self.max_z_length, output_attention_mask)
+            self.sequential_forward(self.model_x_to_z, self.disc_z, x_embeds_enc, x_attention_mask, z_embeds, self.max_z_length - 1, output_attention_mask)
         
-        x_embeds = self.disc_x.embed_dec_from_id(x_ids)
-        z_embeds = self.disc_z.discrete_embedding_to_encoder(quantized_vector)
+        x_embeds_dec = self.disc_x.embed_dec_from_id(x_ids)
+        # attach bos to z_embeds
+        quantized_z_embeds = self.disc_z.discrete_embedding_to_encoder(quantized_vector)
+        z_embeds = torch.cat((self.disc_z.embed_enc_from_id(self.bos_token_id * torch.ones(z_embeds.shape[0], 1, device=z_embeds.device, dtype=torch.long)), quantized_z_embeds), dim=1)
+        z_attention_mask = torch.cat((torch.ones(z_attention_mask.shape[0], 1, device=z_attention_mask.device, dtype=torch.bool), z_attention_mask), dim=1)
 
         x_hat_ids, x_hat_scores, _, x_quantization_loss = self.disc_x(self.model_z_to_x(inputs_embeds=z_embeds, attention_mask=z_attention_mask,
-                                                decoder_inputs_embeds=x_embeds, decoder_attention_mask=x_attention_mask,
+                                                decoder_inputs_embeds=x_embeds_dec, decoder_attention_mask=x_attention_mask,
                                                 output_hidden_states = True)['decoder_hidden_states'][-1])
         
+        x_quantization_loss = (x_quantization_loss * x_attention_mask).sum() / x_attention_mask.sum()
         quantization_loss = z_quantization_loss + x_quantization_loss
-        return {'x_hat_ids': x_hat_ids, 'x_hat_scores':x_hat_scores, 
+        
+        return {'x_hat_ids': x_hat_ids[:, :-1], 'x_hat_scores':x_hat_scores[:, :-1, :], 
                 'z_hat_ids': z_ids, 'z_hat_scores': z_scores, 'quantization_loss': quantization_loss}     
 
 
     def forward_zxz(self, z_ids):
-        z_embeds = self.disc_z.embed_enc_from_id(z_ids)
+        z_embeds_enc = self.disc_z.embed_enc_from_id(z_ids)
         z_attention_mask = torch.logical_not(torch.eq(z_ids, self.pad_token_id))
 
-        output_attention_mask = torch.ones(z_embeds.shape[0], 1, device=z_embeds.device, dtype=torch.bool)
+        output_attention_mask = torch.ones(z_embeds_enc.shape[0], 1, device=z_embeds_enc.device, dtype=torch.bool)
 
-        x_ids = self.bos_token_id * torch.ones(z_embeds.shape[0], 1, device=z_embeds.device, dtype=torch.long)
+        x_ids = self.bos_token_id * torch.ones(z_embeds_enc.shape[0], 1, device=z_embeds_enc.device, dtype=torch.long)
         x_scores = torch.nn.functional.one_hot(x_ids, num_classes=self.disc_x.vocab_size).float()
         x_embeds = self.disc_x.embed_dec_from_id(x_ids)
 
         x_ids, x_scores, quantized_vector, x_quantization_loss, x_attention_mask, eos_flag = \
-            self.sequential_forward(self.model_z_to_x, self.disc_x, z_embeds, z_attention_mask, x_embeds, self.max_x_length, output_attention_mask)
+            self.sequential_forward(self.model_z_to_x, self.disc_x, z_embeds_enc, z_attention_mask, x_embeds, self.max_x_length - 1, output_attention_mask)
 
-        z_embeds = self.disc_z.embed_dec_from_id(z_ids)
-        x_embeds = self.disc_x.discrete_embedding_to_encoder(quantized_vector)
+        z_embeds_dec = self.disc_z.embed_dec_from_id(z_ids)
+        # attach bos to x_embeds
+        quantized_x_embeds = self.disc_x.discrete_embedding_to_encoder(quantized_vector)
+        x_embeds = torch.cat((self.disc_x.embed_enc_from_id(self.bos_token_id * torch.ones(x_embeds.shape[0], 1, device=x_embeds.device, dtype=torch.long)), quantized_x_embeds), dim=1)
+        x_attention_mask = torch.cat((torch.ones(x_attention_mask.shape[0], 1, device=x_attention_mask.device, dtype=torch.bool), x_attention_mask), dim=1)
 
         z_hat_ids, z_hat_scores, _ , z_quantization_loss = self.disc_z(self.model_x_to_z(inputs_embeds=x_embeds, attention_mask=x_attention_mask,
-                                                decoder_inputs_embeds=z_embeds, decoder_attention_mask=z_attention_mask,
+                                                decoder_inputs_embeds=z_embeds_dec, decoder_attention_mask=z_attention_mask,
                                                 output_hidden_states = True)['decoder_hidden_states'][-1])
 
-        quantization_loss = z_quantization_loss + x_quantization_loss 
+        z_quantization_loss = (z_quantization_loss * z_attention_mask).sum() / z_attention_mask.sum()
+        quantization_loss = z_quantization_loss + x_quantization_loss
 
         return {'x_hat_ids': x_ids, 'x_hat_scores': x_scores,
-                'z_hat_ids': z_hat_ids, 'z_hat_scores': z_hat_scores, 'quantization_loss': quantization_loss}
+                'z_hat_ids': z_hat_ids[:, :-1], 'z_hat_scores': z_hat_scores[:, :-1, :], 'quantization_loss': quantization_loss}
          
 
     def forward_supervised_seperated(self, x_ids, z_ids):
@@ -280,15 +287,16 @@ class XZAutoencoder(LightningModule):
 
         out_z = self.model_x_to_z(inputs_embeds=x_embeds_enc, attention_mask=x_attention_mask,
                                     decoder_inputs_embeds=z_embeds_dec, decoder_attention_mask=z_attention_mask,
-                                    output_hidden_states = True)['decoder_hidden_states'][-1]
+                                    output_hidden_states = True)['decoder_hidden_states'][-1][:, :-1, :]
         out_x = self.model_z_to_x(inputs_embeds=z_embeds_enc, attention_mask=z_attention_mask,
                                     decoder_inputs_embeds=x_embeds_dec, decoder_attention_mask=x_attention_mask,
-                                    output_hidden_states = True)['decoder_hidden_states'][-1]
+                                    output_hidden_states = True)['decoder_hidden_states'][-1][:, :-1, :]
         
-        x_hat_ids, x_hat_scores, _, x_quantization_loss = self.disc_x(out_x, supervision = True ,true_ids = x_ids)
-        z_hat_ids, z_hat_scores, _, z_quantization_loss = self.disc_z(out_z, supervision = True, true_ids = z_ids)
+        x_hat_ids, x_hat_scores, _, x_quantization_loss = self.disc_x(out_x, supervision=True, true_ids=x_ids[:, 1:])
+        z_hat_ids, z_hat_scores, _, z_quantization_loss = self.disc_z(out_z, supervision=True, true_ids=z_ids[:, 1:])
         
-        quantization_loss = x_quantization_loss + z_quantization_loss
+        quantization_loss = (x_quantization_loss * x_attention_mask[:, 1:]).sum()/x_attention_mask[:, 1:].sum() \
+                            + (z_quantization_loss * z_attention_mask[:, 1:]).sum()/z_attention_mask[:, 1:].sum()
         return {'x_hat_ids': x_hat_ids, 'x_hat_scores': x_hat_scores,
                 'z_hat_ids': z_hat_ids, 'z_hat_scores': z_hat_scores, 'quantization_loss': quantization_loss}
     
@@ -322,8 +330,8 @@ class XZAutoencoder(LightningModule):
         if (data_type[0] and data_type[1] and self.usexz) or stage!='train':
             output_supervised_seperated = self.forward_supervised_seperated(x_ids, z_ids)
 
-            loss_x = self.loss(torch.log(output_supervised_seperated['x_hat_scores'][:, :-1, :]).permute(0, 2, 1), x_ids[:, 1:])
-            loss_z = self.loss(torch.log(output_supervised_seperated['z_hat_scores'][:, :-1, :]).permute(0, 2, 1), z_ids[:, 1:])
+            loss_x = self.loss(torch.log(output_supervised_seperated['x_hat_scores']).permute(0, 2, 1), x_ids[:, 1:])
+            loss_z = self.loss(torch.log(output_supervised_seperated['z_hat_scores']).permute(0, 2, 1), z_ids[:, 1:])
 
             loss_supervised_seperated = self.loss_coeff['supervised_seperated_x'] * loss_x + self.loss_coeff['supervised_seperated_z'] * loss_z
             outputs['supervised_seperated'] = output_supervised_seperated
@@ -335,7 +343,7 @@ class XZAutoencoder(LightningModule):
         # Unsupervized xzx pass
         if (data_type[0] and not data_type[1]) or (stage!='train') or (data_type[0] and data_type[1] and self.usex):
             output_xzx = self.forward_xzx(x_ids)
-            loss_xzx = self.loss(torch.log(output_xzx['x_hat_scores'][:, :-1, :]).permute(0, 2, 1), x_ids[:, 1:])
+            loss_xzx = self.loss(torch.log(output_xzx['x_hat_scores']).permute(0, 2, 1), x_ids[:, 1:])
             outputs['xzx'] = output_xzx
             losses['xzx'] = loss_xzx  
             losses['quantization_xzx'] = output_xzx['quantization_loss'] 
@@ -344,9 +352,9 @@ class XZAutoencoder(LightningModule):
         # Unsupervized zxz pass
         if (data_type[1] and not data_type[0]) or (stage!='train') or (data_type[0] and data_type[1] and self.usez):
             output_zxz = self.forward_zxz(z_ids)
-            loss_zxz = self.loss(torch.log(output_zxz['z_hat_scores'][:, :-1, :]).permute(0, 2, 1), z_ids[:, 1:])
+            loss_zxz = self.loss(torch.log(output_zxz['z_hat_scores']).permute(0, 2, 1), z_ids[:, 1:])
             outputs['zxz'] = output_zxz
-            losses['zxz'] = loss_zxz 
+            losses['zxz'] = loss_zxz
             losses['quantization_zxz'] = output_zxz['quantization_loss']
       
         loss = 0 
@@ -475,13 +483,12 @@ class XZAutoencoder(LightningModule):
 
         if teacher_forced_available:
             x_hat_ids_teacherforced = outputs['supervised_seperated']['x_hat_ids'].detach()
-            x_hat_ids_teacherforced[:, :-1] = x_hat_ids_teacherforced[:, :-1] * x_pad_mask[:, 1:]
-            x_hat_ids_teacherforced[:, -1] = 0
+            x_hat_ids_teacherforced = x_hat_ids_teacherforced * x_pad_mask[:, 1:]
             z_hat_ids_teacherforced = outputs['supervised_seperated']['z_hat_ids'].detach()
-            z_hat_ids_teacherforced[:, :-1] = z_hat_ids_teacherforced[:, :-1] * z_pad_mask[:, 1:]
-            z_hat_ids_teacherforced[:, -1] = 0
-            x_ids_teacherforced, x_hat_ids_teacherforced = pad_label_label(x_ids, x_hat_ids_teacherforced, self.pad_token_id)
-            z_ids_teacherforced, z_hat_ids_teacherforced = pad_label_label(z_ids, z_hat_ids_teacherforced, self.pad_token_id)
+            z_hat_ids_teacherforced = z_hat_ids_teacherforced * z_pad_mask[:, 1:]
+
+            x_ids_teacherforced, x_hat_ids_teacherforced = pad_label_label(x_ids[:, 1:], x_hat_ids_teacherforced, self.pad_token_id)
+            z_ids_teacherforced, z_hat_ids_teacherforced = pad_label_label(z_ids[:, 1:], z_hat_ids_teacherforced, self.pad_token_id)
             
             self.accuracy_measures(x_ids_teacherforced, x_hat_ids_teacherforced, stage, 'X', 'teacherforced')
             self.accuracy_measures(z_ids_teacherforced, z_hat_ids_teacherforced, stage, 'Z', 'teacherforced')
@@ -490,18 +497,14 @@ class XZAutoencoder(LightningModule):
             z_hat_ids_autoreg = outputs['zxz']['z_hat_ids'].detach()
             x_hat_ids_autoreg = outputs['zxz']['x_hat_ids'].detach()
 
-            z_ids_autoreg, z_hat_ids_autoreg = pad_label_label(z_ids, z_hat_ids_autoreg, self.pad_token_id)
-            x_ids_autoreg, x_hat_ids_autoreg = pad_label_label(x_ids, x_hat_ids_autoreg, self.pad_token_id)
-
-            x_pad_mask = torch.logical_not(torch.eq(x_ids_autoreg, self.pad_token_id))
-            z_pad_mask = torch.logical_not(torch.eq(z_ids_autoreg, self.pad_token_id))
-
-            x_hat_ids_autoreg[:, :-1] = x_hat_ids_autoreg[:, :-1] * x_pad_mask[:, 1:]
-            x_hat_ids_autoreg[:, -1] = 0
-            z_hat_ids_autoreg[:, :-1] = z_hat_ids_autoreg[:, :-1] * z_pad_mask[:, 1:]
-            z_hat_ids_autoreg[:, -1] = 0
+            z_hat_ids_autoreg = z_hat_ids_autoreg * z_pad_mask[:, 1:]
             
-            self.accuracy_measures(z_ids_autoreg, z_hat_ids_autoreg, stage, 'Z', 'autoreg')
+            x_ids_autoreg, x_hat_ids_autoreg = pad_label_label(x_ids[:, 1:], x_hat_ids_autoreg, self.pad_token_id)
+            x_ids_autoreg_mask = torch.logical_not(torch.eq(x_ids_autoreg, self.pad_token_id))
+            x_hat_ids_autoreg = x_hat_ids_autoreg * x_ids_autoreg_mask
+
+            
+            self.accuracy_measures(z_ids[:, 1:], z_hat_ids_autoreg, stage, 'Z', 'autoreg')
             self.accuracy_measures(x_ids_autoreg, x_hat_ids_autoreg, stage, 'X', 'autoreg_hidden_layer')
 
          
@@ -509,18 +512,14 @@ class XZAutoencoder(LightningModule):
             x_hat_ids_autoreg = outputs['xzx']['x_hat_ids'].detach() 
             z_hat_ids_autoreg = outputs['xzx']['z_hat_ids'].detach()
             
-            x_ids_autoreg, x_hat_ids_autoreg = pad_label_label(x_ids, x_hat_ids_autoreg, self.pad_token_id)
-            z_ids_autoreg, z_hat_ids_autoreg = pad_label_label(z_ids, z_hat_ids_autoreg, self.pad_token_id)
+            x_hat_ids_autoreg = x_hat_ids_autoreg * x_pad_mask[:, 1:]
 
-            x_pad_mask = torch.logical_not(torch.eq(x_ids_autoreg, self.pad_token_id))
-            z_pad_mask = torch.logical_not(torch.eq(z_ids_autoreg, self.pad_token_id))
+            z_ids_autoreg, z_hat_ids_autoreg = pad_label_label(z_ids[: ,1:], z_hat_ids_autoreg, self.pad_token_id)
+            z_ids_autoreg_mask = torch.logical_not(torch.eq(z_ids_autoreg, self.pad_token_id))
+            z_hat_ids_autoreg = z_hat_ids_autoreg * z_ids_autoreg_mask
 
-            x_hat_ids_autoreg[:, :-1] = x_hat_ids_autoreg[:, :-1] * x_pad_mask[:, 1:]
-            x_hat_ids_autoreg[:, -1] = 0
-            z_hat_ids_autoreg[:, :-1] = z_hat_ids_autoreg[:, :-1] * z_pad_mask[:, 1:]
-            z_hat_ids_autoreg[:, -1] = 0
-
-            self.accuracy_measures(x_ids_autoreg, x_hat_ids_autoreg, stage, 'X', 'autoreg')
+            
+            self.accuracy_measures(x_ids[:, 1:], x_hat_ids_autoreg, stage, 'X', 'autoreg')
             self.accuracy_measures(z_ids_autoreg, z_hat_ids_autoreg, stage, 'Z', 'autoreg_hidden_layer')
 
         return outputs
@@ -530,14 +529,13 @@ class XZAutoencoder(LightningModule):
         
         # shifting to make the sequences aligned, removing bos
         acc_device = self.device
-        ids = ids[:, 1:].to(acc_device)
-        hat_ids = hat_ids[:, :-1].to(acc_device)
+        ids = ids.to(acc_device)
+        hat_ids = hat_ids.to(acc_device)
+
+        pad_mask = torch.logical_not(torch.eq(ids, self.pad_token_id))
 
         acc_name = f'{stage}/{type}/accuracy/{variable}'
         sentence_acc_name = f'{stage}/{type}/sentence-accuracy/{variable}'
-        
-        pad_mask = torch.logical_not(torch.eq(ids, self.pad_token_id))
-        hat_ids = hat_ids * pad_mask
         
         self.manual_accuracy[acc_name]['correct'] += torch.sum(torch.eq(hat_ids, ids)).cpu().numpy() - torch.sum(torch.logical_not(pad_mask)).cpu().numpy()
         self.manual_accuracy[acc_name]['total'] += torch.sum(pad_mask).cpu().numpy()
