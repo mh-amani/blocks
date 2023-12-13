@@ -47,8 +47,12 @@ class VQVAEDiscreteLayer(AbstractDiscreteLayer):
         return x
     
     def discretize(self, x, **kwargs) -> dict: 
-        probs = self.kernel( - self.codebook_distances(x) / self.temperature)
         x = self.project_matrix(x)
+        probs = self.kernel( - self.codebook_distances(x) / self.temperature)
+        if probs.isnan().any():
+            print("Nan in probs")
+            breakpoint()
+        
         indices = torch.argmax(probs, dim=-1)
 
         if self.hard:
@@ -68,6 +72,9 @@ class VQVAEDiscreteLayer(AbstractDiscreteLayer):
             embedding_loss = self.embedding_loss(quantized_dict_only, x.detach())
             
         vq_loss = self.beta * commitment_loss + embedding_loss
+        if torch.isnan(vq_loss).any():
+            print("Loss is NaN. Adding breakpoint.")
+            breakpoint()
         
         return indices, probs, quantized, vq_loss
 
@@ -83,6 +90,9 @@ class VQVAEDiscreteLayer(AbstractDiscreteLayer):
 
         # Compute the squared differences
         dist = torch.linalg.vector_norm(x_expanded - dictionary_expanded, ord=self.dist_ord, dim=-1)
+        if dist.isnan().any():
+            print("Nan in distances")
+            breakpoint()
         return dist
 
     
