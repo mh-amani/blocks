@@ -31,7 +31,7 @@ model:
   checkpoint_path: ???
   substitute_config:
     model_params:
-      use_pc_grad: True
+      use_pc_grad: False
 
       # for gradient inner product logging in val step 
       log_gradient_stats: False

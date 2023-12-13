@@ -458,6 +458,11 @@ class XZAutoencoder(LightningModule):
             scheduler.step(self.trainer.callback_metrics[self.hparams.lr_scheduler.monitor])
             self.log(name=f'lr-scheduler/{self.module_names[id]}', value=scheduler._last_lr[0], batch_size=self.batch_size, sync_dist=True)
 
+        # apply project matrix on dictionaries
+        with torch.no_grad():
+            self.disc_x.project_embedding_matrix()
+            self.disc_z.project_embedding_matrix()
+        
         # print(self.trainer.callback_metrics)
         # self.correct_predictions_mask()
         # print('-------on train epoch end------')
