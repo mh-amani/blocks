@@ -384,19 +384,27 @@ class XZAutoencoder(LightningModule):
         else:
             self.gd_update(batch, batch_idx)
 
+    
     def gd_update(self, batch, batch_idx):
         loss, _, _ = self.forward(batch)
+
+        # Check if loss is NaN
+        if torch.isnan(loss).any():
+            print("Loss is NaN. Adding breakpoint.")
+            breakpoint()
+
         loss = loss / self.acc_grad_batch * 1.0
-        
         self.manual_backward(loss)
-    
+        
         if (batch_idx + 1) % self.acc_grad_batch == 0:
             optimizers = self.optimizers()
+
             for optimizer in optimizers:
+                # Check if any optimizer parameter is NaN
                 self.clip_gradients(optimizer, gradient_clip_val=0.5, gradient_clip_algorithm="norm")
                 optimizer.step()
                 optimizer.zero_grad()
-            
+
             # self.disc_x.project_embedding_matrix()
             # self.disc_z.project_embedding_matrix()
         
