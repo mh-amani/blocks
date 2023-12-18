@@ -28,7 +28,7 @@
 
 DEVICE=2
 BSIZE=128
-DISC='vqvae' # 'gumbel' or 'vqvae' or 'softmax'
+DISC='softmax' # 'gumbel' or 'vqvae' or 'softmax'
 SEQMODEL='bart' # 'gpt2_gpt2' or 'bart'
 DEVICE=[0]
 CKPT="'/dlabdata1/masani/blocks/logs/training/runs/scan/suponly-[0.04, 0.9]-gpt2_gpt2-vqvae/2023-12-11_10-53-50/checkpoints/last.ckpt'"

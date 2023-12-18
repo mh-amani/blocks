@@ -10,14 +10,14 @@ class SoftmaxContinousLayer(AbstractDiscreteLayer):
         torch.nn.init.normal_(self.dictionary.weight, mean=0, std=1/math.sqrt(self.dictionary_dim))
 
         self.output_embedding = torch.nn.Linear(self.output_dim, self.vocab_size, bias=False)
-        self.out_std = 1/math.sqrt(self.output_dim * self.vocab_size)
+        self.out_std = 1/math.sqrt(self.output_dim)
         torch.nn.init.normal_(self.output_embedding.weight, mean=0, std=self.out_std)
         # self.output_embedding = lambda x: x
         self.encoder_embedding = torch.nn.Linear(self.dictionary_dim, self.input_dim, bias=False)
-        torch.nn.init.normal_(self.encoder_embedding.weight, mean=0, std=1)
+        torch.nn.init.normal_(self.encoder_embedding.weight, mean=0, std=1/math.sqrt(self.dictionary_dim))
         # self.encoder_embedding = lambda x: x
         self.decoder_embedding = torch.nn.Linear(self.dictionary_dim, self.output_dim, bias=False)
-        torch.nn.init.normal_(self.decoder_embedding.weight, mean=0, std=1)
+        torch.nn.init.normal_(self.decoder_embedding.weight, mean=0, std=1/math.sqrt(self.dictionary_dim))
         # self.output_embedding = lambda x: x
 
         self.logit_std = math.sqrt(self.output_dim * self.out_std**2)
