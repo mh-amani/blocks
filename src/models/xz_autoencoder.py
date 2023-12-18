@@ -10,6 +10,7 @@ import torch
 from omegaconf import OmegaConf
 from src.utils.metrics import pad_label_label
 import numpy as np
+from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 from torchmetrics.wrappers import BootStrapper
 import torchmetrics
 import code
@@ -51,7 +52,8 @@ class XZAutoencoder(LightningModule):
         # smoothed_preds = (1 - self.label_smoothing_scale) * preds + self.label_smoothing_scale / self.vocab_size
         # self.loss = torch.nn.NLLLoss(ignore_index=self.pad_token_id)(torch.log(smoothed_preds).permute(0, 2, 1), label_ids)
         
-        self.loss = torch.nn.NLLLoss(ignore_index=self.pad_token_id)
+        # self.loss = torch.nn.NLLLoss(ignore_index=self.pad_token_id)
+        self.loss = CrossEntropyLoss(ignore_index=self.pad_token_id, label_smoothing=0.01)
         self.loss_coeff = self.hparams.model_params.loss_coeff
         self.usexz = self.hparams.model_params['usexz']
         self.usez = self.hparams.model_params['usez']
@@ -151,25 +153,35 @@ class XZAutoencoder(LightningModule):
         #     self.pretokenized_flag = 1
 
     def one_step_sequential_forward(self, model, discretizer, input_embeds, input_attention_mask, 
-                                    output_embeds, output_attention_mask=None, past_key_values=None):
+                                    output_embeds, output_attention_mask=None, past_key_values=None,
+                                    encoder_last_hidden_state=None, hidden_state=None, encoder_attentions=None):
         
         if past_key_values is not None:
             output = model(inputs_embeds=input_embeds, attention_mask=input_attention_mask,
                            decoder_inputs_embeds=output_embeds, 
                            decoder_attention_mask=output_attention_mask,
-                           past_key_values=past_key_values, output_hidden_states = True)
+                           output_hidden_states = True, output_attentions=True,
+                           past_key_values=past_key_values,
+                           encoder_outputs = (encoder_last_hidden_state,hidden_state,encoder_attentions),
+                           )
         else:
             output = model(inputs_embeds=input_embeds, attention_mask=input_attention_mask,
                            decoder_inputs_embeds=output_embeds, decoder_attention_mask=output_attention_mask,
-                           output_hidden_states = True)
+                           output_hidden_states = True, output_attentions=True,
+                           encoder_outputs = None,)
         
         output_embed = output['decoder_hidden_states'][-1]
         past_key_values = output['past_key_values']
 
-        id, score, quantized_vector, quantization_loss = discretizer(output_embed)
+        # output of the encoder to be used in generation
+        encoder_last_hidden_state = output.encoder_last_hidden_state
+        hidden_state = output.encoder_hidden_states
+        encoder_attentions = output.encoder_attentions
+
+        id, score, logits, quantized_vector, quantization_loss = discretizer(output_embed)
         current_eos_flag = id == self.eos_token_id
         
-        return(id, score, quantized_vector, quantization_loss, current_eos_flag, past_key_values)
+        return(id, score, logits, quantized_vector, quantization_loss, current_eos_flag, past_key_values, encoder_last_hidden_state, hidden_state, encoder_attentions)
 
     # @profile
     def sequential_forward(self, model, discretizer, input_embeds, input_attention_mask, output_embeds, max_length, output_attention_mask=None):
@@ -179,7 +191,7 @@ class XZAutoencoder(LightningModule):
         quantization_loss = 0
 
         # first step to get the past_key_values
-        id, score, quantized_vector, quantization_loss, eos_flag, past_key_values = \
+        id, score, logit, quantized_vector, quantization_loss, eos_flag, past_key_values, encoder_last_hidden_state, hidden_state, encoder_attentions = \
             self.one_step_sequential_forward(model, discretizer, input_embeds, input_attention_mask,
                                                     output_embeds, output_attention_mask=output_attention_mask)
         
@@ -189,16 +201,21 @@ class XZAutoencoder(LightningModule):
 
         # Added for doing average on quantization loss
         counter = 1
+        output_attention_mask = torch.cat((output_attention_mask, torch.logical_not(eos_flag)), dim=1)
         
         while output_attention_mask.shape[1] < max_length and not torch.all(eos_flag):
-            current_id, current_score, current_quantized_vector, current_quantization_loss, current_eos_flag, past_key_values = \
+            current_id, current_score, current_logit, current_quantized_vector, current_quantization_loss, current_eos_flag, past_key_values, encoder_last_hidden_state, hidden_state, encoder_attentions= \
             self.one_step_sequential_forward(model, discretizer, input_embeds, input_attention_mask,
-                                                    output_embed, output_attention_mask=torch.logical_not(eos_flag),
-                                                    past_key_values=past_key_values)
+                                                    output_embed, output_attention_mask=output_attention_mask, # used to be torch.logical_not(eos_flag) for gpt2-gpt2
+                                                    past_key_values=past_key_values,
+                                                    encoder_last_hidden_state=encoder_last_hidden_state, 
+                                                    hidden_state=hidden_state, 
+                                                    encoder_attentions=encoder_attentions)
             
            
             id = torch.cat((id, current_id), dim=1)
             score = torch.cat((score, current_score), dim=1)
+            logit = torch.cat((logit, current_logit), dim=1)
             quantized_vector = torch.cat((quantized_vector, current_quantized_vector), dim=1)
             
             # if self.decode_after_autoreg_step:
@@ -208,7 +225,7 @@ class XZAutoencoder(LightningModule):
             output_attention_mask = torch.cat((output_attention_mask, torch.logical_not(eos_flag)), dim=1)
             quantization_loss += (current_quantization_loss * torch.logical_not(eos_flag).float())
         
-        return id, score, quantized_vector, quantization_loss.sum()/output_attention_mask.sum() , output_attention_mask, eos_flag
+        return id, score, logit, quantized_vector, quantization_loss.sum()/output_attention_mask.sum() , output_attention_mask, eos_flag
         
 
     
@@ -227,25 +244,26 @@ class XZAutoencoder(LightningModule):
         z_scores = torch.nn.functional.one_hot(z_ids, num_classes=self.disc_z.vocab_size).float()
         z_embeds = self.disc_z.embed_dec_from_id(z_ids)
         
-        z_ids, z_scores, quantized_vector, z_quantization_loss, z_attention_mask, eos_flag = \
+        z_ids, z_scores, z_logits, quantized_vector, z_quantization_loss, z_attention_mask, eos_flag = \
             self.sequential_forward(self.model_x_to_z, self.disc_z, x_embeds_enc, x_attention_mask, z_embeds, self.max_z_length - 1, output_attention_mask)
         
         x_embeds_dec = self.disc_x.embed_dec_from_id(x_ids)
         # attach bos to z_embeds
         quantized_z_embeds = self.disc_z.discrete_embedding_to_encoder(quantized_vector)
         z_embeds = torch.cat((self.disc_z.embed_enc_from_id(self.bos_token_id * torch.ones(z_embeds.shape[0], 1, device=z_embeds.device, dtype=torch.long)), quantized_z_embeds), dim=1)
-        z_attention_mask = torch.cat((torch.ones(z_attention_mask.shape[0], 1, device=z_attention_mask.device, dtype=torch.bool), z_attention_mask), dim=1)
+        # z_attention_mask = torch.cat((torch.ones(z_attention_mask.shape[0], 1, device=z_attention_mask.device, dtype=torch.bool), z_attention_mask), dim=1)
 
         out_x = self.model_z_to_x(inputs_embeds=z_embeds, attention_mask=z_attention_mask,
                                                 decoder_inputs_embeds=x_embeds_dec, decoder_attention_mask=x_attention_mask,
                                                 output_hidden_states = True)['decoder_hidden_states'][-1][:, :-1, :]
         
-        x_hat_ids, x_hat_scores, _, x_quantization_loss = self.disc_x(out_x, supervision=True, true_ids=x_ids[:, 1:])
+        x_hat_ids, x_hat_scores, x_hat_logits,  _, x_quantization_loss = self.disc_x(out_x, supervision=True, true_ids=x_ids[:, 1:])
         x_quantization_loss = (x_quantization_loss * x_attention_mask[:, 1:]).sum() / x_attention_mask[:, 1:].sum()
         quantization_loss = z_quantization_loss + x_quantization_loss
         
         return {'x_hat_ids': x_hat_ids, 'x_hat_scores':x_hat_scores, 
-                'z_hat_ids': z_ids, 'z_hat_scores': z_scores, 'quantization_loss': quantization_loss}     
+                'z_hat_ids': z_ids, 'z_hat_scores': z_scores, 'quantization_loss': quantization_loss,
+                'x_hat_logits': x_hat_logits, 'z_hat_logits': z_logits}     
 
 
     def forward_zxz(self, z_ids):
@@ -258,26 +276,27 @@ class XZAutoencoder(LightningModule):
         x_scores = torch.nn.functional.one_hot(x_ids, num_classes=self.disc_x.vocab_size).float()
         x_embeds = self.disc_x.embed_dec_from_id(x_ids)
 
-        x_ids, x_scores, quantized_vector, x_quantization_loss, x_attention_mask, eos_flag = \
+        x_ids, x_scores, x_logits, quantized_vector, x_quantization_loss, x_attention_mask, eos_flag = \
             self.sequential_forward(self.model_z_to_x, self.disc_x, z_embeds_enc, z_attention_mask, x_embeds, self.max_x_length - 1, output_attention_mask)
 
         z_embeds_dec = self.disc_z.embed_dec_from_id(z_ids)
         # attach bos to x_embeds
         quantized_x_embeds = self.disc_x.discrete_embedding_to_encoder(quantized_vector)
         x_embeds = torch.cat((self.disc_x.embed_enc_from_id(self.bos_token_id * torch.ones(x_embeds.shape[0], 1, device=x_embeds.device, dtype=torch.long)), quantized_x_embeds), dim=1)
-        x_attention_mask = torch.cat((torch.ones(x_attention_mask.shape[0], 1, device=x_attention_mask.device, dtype=torch.bool), x_attention_mask), dim=1)
+        # x_attention_mask = torch.cat((torch.ones(x_attention_mask.shape[0], 1, device=x_attention_mask.device, dtype=torch.bool), x_attention_mask), dim=1)
 
         out_z = self.model_x_to_z(inputs_embeds=x_embeds, attention_mask=x_attention_mask,
                                                 decoder_inputs_embeds=z_embeds_dec, decoder_attention_mask=z_attention_mask,
                                                 output_hidden_states = True)['decoder_hidden_states'][-1][:, :-1, :]
 
-        z_hat_ids, z_hat_scores, _ , z_quantization_loss  = self.disc_z(out_z, supervision=True, true_ids=z_ids[:, 1:])
+        z_hat_ids, z_hat_scores, z_hat_logits, _, z_quantization_loss  = self.disc_z(out_z, supervision=True, true_ids=z_ids[:, 1:])
 
         z_quantization_loss = (z_quantization_loss * z_attention_mask[:, 1:]).sum() / z_attention_mask[:, 1:].sum()
         quantization_loss = z_quantization_loss + x_quantization_loss
 
         return {'x_hat_ids': x_ids, 'x_hat_scores': x_scores,
-                'z_hat_ids': z_hat_ids, 'z_hat_scores': z_hat_scores, 'quantization_loss': quantization_loss}
+                'z_hat_ids': z_hat_ids, 'z_hat_scores': z_hat_scores, 'quantization_loss': quantization_loss,
+                'x_hat_logits': x_logits, 'z_hat_logits': z_hat_logits}
          
 
     def forward_supervised_seperated(self, x_ids, z_ids):
@@ -295,13 +314,15 @@ class XZAutoencoder(LightningModule):
                                     decoder_inputs_embeds=x_embeds_dec, decoder_attention_mask=x_attention_mask,
                                     output_hidden_states = True)['decoder_hidden_states'][-1][:, :-1, :]
         
-        x_hat_ids, x_hat_scores, _, x_quantization_loss = self.disc_x(out_x, supervision=True, true_ids=x_ids[:, 1:])
-        z_hat_ids, z_hat_scores, _, z_quantization_loss = self.disc_z(out_z, supervision=True, true_ids=z_ids[:, 1:])
+        x_hat_ids, x_hat_scores, x_hat_logits, _, x_quantization_loss = self.disc_x(out_x, supervision=True, true_ids=x_ids[:, 1:])
+        z_hat_ids, z_hat_scores, z_hat_logits, _, z_quantization_loss = self.disc_z(out_z, supervision=True, true_ids=z_ids[:, 1:])
         
         quantization_loss = (x_quantization_loss * x_attention_mask[:, 1:]).sum()/x_attention_mask[:, 1:].sum() \
                             + (z_quantization_loss * z_attention_mask[:, 1:]).sum()/z_attention_mask[:, 1:].sum()
         return {'x_hat_ids': x_hat_ids, 'x_hat_scores': x_hat_scores,
-                'z_hat_ids': z_hat_ids, 'z_hat_scores': z_hat_scores, 'quantization_loss': quantization_loss}
+                'z_hat_ids': z_hat_ids, 'z_hat_scores': z_hat_scores, 'quantization_loss': quantization_loss,
+                'x_hat_logits': x_hat_logits, 'z_hat_logits': z_hat_logits}
+
     
 
     def forward(self, batch, stage='train'):
@@ -333,8 +354,14 @@ class XZAutoencoder(LightningModule):
         if (data_type[0] and data_type[1] and self.usexz) or stage!='train':
             output_supervised_seperated = self.forward_supervised_seperated(x_ids, z_ids)
 
-            loss_x = self.loss(torch.log(output_supervised_seperated['x_hat_scores']).permute(0, 2, 1), x_ids[:, 1:])
-            loss_z = self.loss(torch.log(output_supervised_seperated['z_hat_scores']).permute(0, 2, 1), z_ids[:, 1:])
+            # loss_x = self.loss(torch.log(output_supervised_seperated['x_hat_scores']).permute(0, 2, 1), x_ids[:, 1:])
+            # loss_z = self.loss(torch.log(output_supervised_seperated['z_hat_scores']).permute(0, 2, 1), z_ids[:, 1:])
+
+            # loss_x = self.loss(torch.nn.LogSoftmax(dim=-1)(output_supervised_seperated['x_hat_logits']).permute(0, 2, 1), x_ids[:, 1:])
+            # loss_z = self.loss(torch.nn.LogSoftmax(dim=-1)(output_supervised_seperated['z_hat_logits']).permute(0, 2, 1), z_ids[:, 1:])
+
+            loss_x = self.loss((output_supervised_seperated['x_hat_logits']).permute(0, 2, 1), x_ids[:, 1:])
+            loss_z = self.loss((output_supervised_seperated['z_hat_logits']).permute(0, 2, 1), z_ids[:, 1:])
 
             loss_supervised_seperated = self.loss_coeff['supervised_seperated_x'] * loss_x + self.loss_coeff['supervised_seperated_z'] * loss_z
             outputs['supervised_seperated'] = output_supervised_seperated
@@ -346,7 +373,8 @@ class XZAutoencoder(LightningModule):
         # Unsupervized xzx pass
         if (data_type[0] and not data_type[1]) or (stage!='train') or (data_type[0] and data_type[1] and self.usex):
             output_xzx = self.forward_xzx(x_ids)
-            loss_xzx = self.loss(torch.log(output_xzx['x_hat_scores']).permute(0, 2, 1), x_ids[:, 1:])
+            # loss_xzx = self.loss(torch.log(output_xzx['x_hat_scores']).permute(0, 2, 1), x_ids[:, 1:])
+            loss_xzx = self.loss(torch.nn.LogSoftmax(dim=-1)(output_xzx['x_hat_logits']).permute(0, 2, 1), x_ids[:, 1:])
             outputs['xzx'] = output_xzx
             losses['xzx'] = loss_xzx  
             losses['quantization_xzx'] = output_xzx['quantization_loss'] 
@@ -355,7 +383,8 @@ class XZAutoencoder(LightningModule):
         # Unsupervized zxz pass
         if (data_type[1] and not data_type[0]) or (stage!='train') or (data_type[0] and data_type[1] and self.usez):
             output_zxz = self.forward_zxz(z_ids)
-            loss_zxz = self.loss(torch.log(output_zxz['z_hat_scores']).permute(0, 2, 1), z_ids[:, 1:])
+            # loss_zxz = self.loss(torch.log(output_zxz['z_hat_scores']).permute(0, 2, 1), z_ids[:, 1:])
+            loss_zxz = self.loss(torch.nn.LogSoftmax(dim=-1)(output_zxz['z_hat_logits']).permute(0, 2, 1), z_ids[:, 1:])
             outputs['zxz'] = output_zxz
             losses['zxz'] = loss_zxz
             losses['quantization_zxz'] = output_zxz['quantization_loss']
@@ -385,21 +414,49 @@ class XZAutoencoder(LightningModule):
             self.gd_update(batch, batch_idx)
 
     def gd_update(self, batch, batch_idx):
-        loss, _, _ = self.forward(batch)
+        loss, _, outputs = self.forward(batch)
         loss = loss / self.acc_grad_batch * 1.0
         
         self.manual_backward(loss)
-    
+
         if (batch_idx + 1) % self.acc_grad_batch == 0:
             optimizers = self.optimizers()
             for optimizer in optimizers:
                 self.clip_gradients(optimizer, gradient_clip_val=0.5, gradient_clip_algorithm="norm")
                 optimizer.step()
                 optimizer.zero_grad()
-            
-            # self.disc_x.project_embedding_matrix()
-            # self.disc_z.project_embedding_matrix()
+
+        with torch.no_grad():
+            for name, param in iter(self.named_parameters()):
+                # if name.startswith('disc') and param.requires_grad:
+                param.clamp_(-1, 1)
+
+
+        # param_dict = dict(self.named_parameters())
+        # param_dict['disc_z.dictionary.weight']._grad.var(dim=-1)
+        # param_dict['disc_x.dictionary.weight']._grad.var(dim=-1)
+        # torch.linalg.norm(param_dict['disc_z.dictionary.weight']._grad, dim=-1)
+        # torch.linalg.norm(param_dict['disc_x.dictionary.weight']._grad, dim=-1)
+        # torch.linalg.norm(param_dict['disc_z.encoder_embedding.weight']._grad, dim=-1).mean()
         
+        # for name, param in iter(self.named_parameters()):
+        #    if param._grad is not None:
+        #        print('{: <75}'.format(name), '{: <4}'.format(param._grad.abs().mean().cpu().numpy().round(decimals=2)), '{: <4}'.format(param.abs().mean().detach().cpu().numpy().round(decimals=2)))
+
+        # print different optimizer parameters with names from self.named_parameters():
+        # for optimizer in self.optimizers():
+        #     for group in optimizer.param_groups:
+        #         for param in group['params']:
+        #             param.name = self.param_to_name(param)
+        #             print(param.grad)
+        #             print(param.grad.abs().mean().round(decimals=2))
+        #             print(param.grad.abs().max().round(decimals=2))
+        #             print(param.grad.abs().min().round(decimals=2))
+        #             print(param.grad.abs().std().round(decimals=2))
+        # for param in optimizer.param_groups[0]['params']:
+            # for param_name, param in self.named_parameters():
+        # if param.requires_grad and any(param is p for p in optimizer.param_groups[0]['params']):
+
         return loss
 
     def pc_grad_update(self, batch, batch_idx):
@@ -459,9 +516,9 @@ class XZAutoencoder(LightningModule):
             self.log(name=f'lr-scheduler/{self.module_names[id]}', value=scheduler._last_lr[0], batch_size=self.batch_size, sync_dist=True)
 
         # apply project matrix on dictionaries
-        with torch.no_grad():
-            self.disc_x.project_embedding_matrix()
-            self.disc_z.project_embedding_matrix()
+        # with torch.no_grad():
+        #     self.disc_x.project_embedding_matrix()
+        #     self.disc_z.project_embedding_matrix()
         
         # print(self.trainer.callback_metrics)
         # self.correct_predictions_mask()
@@ -606,7 +663,8 @@ class XZAutoencoder(LightningModule):
 
 
     def validation_step(self, batch, batch_idx):
-        self.compute_accuracy_measures(batch, batch_idx, stage='val')
+        self.compute_accuracy_measures(batch, batch_idx, stage='val')        
+    
 
     # @profile
     def on_validation_epoch_end(self):
@@ -694,6 +752,21 @@ class XZAutoencoder(LightningModule):
         # dict = self.correct_predictions_mask(self.trainer.datamodule.val_dataloader())
         # print('val_stats:', dict)
         # print('-----------------------')
+
+        # add epoch number, and cosine similarity of x and z embedding vectors to a text file.
+        # Create a string to write to the text file
+        disc_x_cosine_sim = self.format_matrix(self.dictionary_cosine_sim('x'))
+        disc_z_cosine_sim = self.format_matrix(self.dictionary_cosine_sim('z'))
+        disc_x_inner_prod = self.format_matrix(self.dictionary_inner_prod_sim('x'))
+        disc_z_inner_prod = self.format_matrix(self.dictionary_inner_prod_sim('z'))
+        log_string = f"Epoch: {self.trainer.current_epoch}\nDisc_x_cosine_sim:\n{disc_x_cosine_sim}\nDisc_z_cosine_sim:\n{disc_z_cosine_sim}\nDisc_x_inner_prod:\n{disc_x_inner_prod}\nDisc_z_inner_prod:\n{disc_z_inner_prod}\n"
+
+        # Specify the path of the text file
+        file_path = "disc_logs.txt"
+
+        # Open the file in append mode and write the log_string
+        with open(file_path, "a") as file:
+            file.write(log_string)
 
     def test_step(self, batch, batch_idx):
         
@@ -905,3 +978,34 @@ class XZAutoencoder(LightningModule):
             self.disc_z_vocab_size = self.hparams.model_params.disc_z_vocab_size
         return( {'input_dim': self.x_in_dim, 'output_dim': self.x_out_dim, 'vocab_size': self.disc_x_vocab_size}, 
                 {'input_dim': self.z_in_dim, 'output_dim': self.z_out_dim, 'vocab_size': self.disc_z_vocab_size})
+
+
+    def dictionary_cosine_sim(self, alphabet='x'):
+        if alphabet == 'x':
+            kernel = self.disc_x.state_dict()['dictionary.weight'].cpu().numpy()
+        elif alphabet == 'z':
+            kernel = self.disc_z.state_dict()['dictionary.weight'].cpu().numpy()
+        # cosine similarity
+        inner_prods = kernel.dot(kernel.T)
+        lengths = np.linalg.norm(kernel, axis=1)
+        length_matrix = np.outer(lengths, lengths)
+        kernel = np.round(inner_prods / length_matrix, decimals=2)
+        return kernel
+
+
+    def dictionary_inner_prod_sim(self, alphabet='x'):
+        if alphabet == 'x':
+            kernel = self.disc_x.state_dict()['dictionary.weight'].cpu().numpy()
+        elif alphabet == 'z':
+            kernel = self.disc_z.state_dict()['dictionary.weight'].cpu().numpy()
+        inner_prods = kernel.dot(kernel.T)
+        kernel = np.round(inner_prods, decimals=2)
+        return kernel
+
+    def format_matrix(self, matrix):
+        formatted_rows = []
+        for row in matrix:
+            formatted_values = [f"{value: 8.2f}" for value in row]
+            formatted_row = "[" + ", ".join(formatted_values) + "]"
+            formatted_rows.append(formatted_row)
+        return "\n\n".join(formatted_rows)

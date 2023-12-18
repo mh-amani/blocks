@@ -9,6 +9,7 @@ from pytorch_lightning import Callback, LightningDataModule, LightningModule, Tr
 from pytorch_lightning.loggers.logger import Logger
 import json
 from src.models.xz_autoencoder import XZAutoencoder
+import torch
 
 import src.utils.general as utils
 
@@ -29,6 +30,8 @@ def train(config: DictConfig) -> Optional[float]:
 
     use_ddp = config.trainer.get('strategy', False)
     print("use_ddp",use_ddp)
+
+    torch.set_float32_matmul_precision('medium') # 'high'
 
     # print current working directory
     log.info(f"Current working directory: {os.getcwd()}")
