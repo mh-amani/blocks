@@ -2,6 +2,7 @@ lr: 0.001
 weight_decay: 0.01
 eps: 1e-08
 betas: [0.9, 0.95]
+<<<<<<< HEAD
 
 disc_x:
   _target_: torch.optim.AdamW
@@ -30,3 +31,5 @@ model_z_to_x:
   weight_decay: ${..weight_decay}
   eps: ${..eps}
   betas: ${..betas}
+=======
+>>>>>>> 11bda90133796b6126c367867a45495e0019f3c6
