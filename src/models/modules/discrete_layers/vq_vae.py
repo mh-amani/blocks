@@ -1,18 +1,32 @@
 from .abstract_discrete_layer import AbstractDiscreteLayer
 import torch
 from torch import nn
+import numpy as np
 # from vector_quantize_pytorch import VectorQuantize
-from entmax import sparsemax
+import math
+
 
 class VQVAEDiscreteLayer(AbstractDiscreteLayer):
     def __init__(self, dims, **kwargs) -> None:
         super().__init__(dims, **kwargs)      
         
-        self.projection_method = kwargs.get("projection_method",None)
+        # self.logit_scale = torch.tensor((self.dictionary_dim * 2)**0.5, requires_grad=False)
+        self.logit_scale = torch.tensor((2)**0.5, requires_grad=False)
+        self.logit_init = nn.Parameter(torch.ones([]) * np.log(self.dictionary_dim), requires_grad=False)
         
         self.dictionary = nn.Embedding(self.vocab_size, self.dictionary_dim)
-        self.dictionary.weight = torch.nn.Parameter(self.project_matrix(self.dictionary.weight))
-        
+        torch.nn.init.uniform_(self.dictionary.weight, -1, 1)
+        self.output_embedding = nn.Linear(self.output_dim, self.dictionary_dim, bias=True)
+        torch.nn.init.normal_(self.output_embedding.weight, mean=0, std=1/ 3 / math.sqrt(self.output_dim))
+
+        # self.output_embedding = lambda x: x
+        self.encoder_embedding = nn.Linear(self.dictionary_dim, self.input_dim, bias=False)
+        torch.nn.init.normal_(self.encoder_embedding.weight, mean=0, std=1/math.sqrt(self.dictionary_dim))
+        # self.encoder_embedding = lambda x: x
+        self.decoder_embedding = nn.Linear(self.dictionary_dim, self.output_dim, bias=False)
+        torch.nn.init.normal_(self.decoder_embedding.weight, mean=0, std=1/math.sqrt(self.dictionary_dim))
+        # self.decoder_embedding = lambda x: x
+
         self.dist_ord = kwargs.get('dist_ord', 2) 
         self.embedding_loss_torch = torch.nn.functional.mse_loss # torch.nn.CosineSimilarity(dim=-1)
         self.hard = kwargs['hard']
@@ -35,20 +49,12 @@ class VQVAEDiscreteLayer(AbstractDiscreteLayer):
     ###################
     def embedding_loss(self, quantized, x):
         return(self.embedding_loss_torch(quantized, x, reduction='none').mean(dim=-1))
-
-    def project_matrix(self,x):
-        if self.projection_method == "unit-sphere":
-            return torch.nn.functional.normalize(x,dim=-1)
-        if self.projection_method == "scale":
-            # devide the vector by the square root of the dimension
-            return x / torch.sqrt(self.dictionary_dim)
-        if self.projection_method == "layer norm":
-            return self.out_layer_norm(x)     
-        return x
     
     def discretize(self, x, **kwargs) -> dict: 
-        x = self.project_matrix(x)
-        probs = self.kernel( - self.codebook_distances(x) / self.temperature)
+        dists = self.codebook_distances(x)
+        logits = (1 - dists / self.logit_scale  - self.logit_init) / self.temperature   
+        # logits = - dists/self.logit_scale * self.logit_init * self.temperature
+        probs = self.kernel(logits)
         indices = torch.argmax(probs, dim=-1)
 
         if self.hard:
@@ -69,7 +75,7 @@ class VQVAEDiscreteLayer(AbstractDiscreteLayer):
             
         vq_loss = self.beta * commitment_loss + embedding_loss
         
-        return indices, probs, quantized, vq_loss
+        return indices, probs, logits, quantized, vq_loss
 
     def codebook_distances(self, x):
         

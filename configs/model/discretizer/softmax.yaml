@@ -1,4 +1,4 @@
 _target_: src.models.modules.discrete_layers.softmax.SoftmaxContinousLayer
 key: softmax_continous
 temperature: 1.0
-dictionary_dim: 20
+dictionary_dim: 256
