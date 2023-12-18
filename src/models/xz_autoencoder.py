@@ -909,14 +909,26 @@ class XZAutoencoder(LightningModule):
                                         {"params": self.disc_x.parameters()},
                                         {"params": self.disc_z.parameters()}]
         
-        model_x_to_z_optimizer: torch.optim.Optimizer = hydra.utils.instantiate(
-            self.hparams.optimizer, **optimizer_grouped_parameters[0])
-        model_z_to_x_optimizer: torch.optim.Optimizer = hydra.utils.instantiate(
-            self.hparams.optimizer, **optimizer_grouped_parameters[1])
-        disc_x_optimizer: torch.optim.Optimizer = hydra.utils.instantiate(
-            self.hparams.optimizer, **optimizer_grouped_parameters[2])
-        disc_z_optimizer: torch.optim.Optimizer = hydra.utils.instantiate(
-            self.hparams.optimizer, **optimizer_grouped_parameters[3])
+        if self.hparams.optimizer.get('_target_', False):
+            model_x_to_z_optimizer: torch.optim.Optimizer = hydra.utils.instantiate(
+                self.hparams.optimizer, **optimizer_grouped_parameters[0])
+            model_z_to_x_optimizer: torch.optim.Optimizer = hydra.utils.instantiate(
+                self.hparams.optimizer, **optimizer_grouped_parameters[1])
+            disc_x_optimizer: torch.optim.Optimizer = hydra.utils.instantiate(
+                self.hparams.optimizer, **optimizer_grouped_parameters[2])
+            disc_z_optimizer: torch.optim.Optimizer = hydra.utils.instantiate(
+                self.hparams.optimizer, **optimizer_grouped_parameters[3])
+
+        else:
+            model_x_to_z_optimizer: torch.optim.Optimizer = hydra.utils.instantiate(
+                self.hparams.optimizer.model_x_to_z, **optimizer_grouped_parameters[0])
+            model_z_to_x_optimizer: torch.optim.Optimizer = hydra.utils.instantiate(
+                self.hparams.optimizer.model_z_to_x, **optimizer_grouped_parameters[1])
+            disc_x_optimizer: torch.optim.Optimizer = hydra.utils.instantiate(
+                self.hparams.optimizer.disc_x, **optimizer_grouped_parameters[2])
+            disc_z_optimizer: torch.optim.Optimizer = hydra.utils.instantiate(
+                self.hparams.optimizer.disc_z, **optimizer_grouped_parameters[3])
+        
         
         # for pytorch scheduler objects, we should use utils.instantiate()
         if self.hparams.lr_scheduler["_target_"].startswith("torch.optim"):
