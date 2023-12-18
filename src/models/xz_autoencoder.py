@@ -419,6 +419,26 @@ class XZAutoencoder(LightningModule):
         
         self.manual_backward(loss)
 
+        if batch_idx == 0:
+            log_string = f"---------------------------------------------\nEpoch: {self.trainer.current_epoch}\n"
+            name_list = ['model_z_to_x.decoder.layernorm_embedding.bias', 'model_z_to_x.decoder.layernorm_embedding.weight', 
+                        'model_z_to_x.decoder.layers.7.final_layer_norm.bias', 'model_z_to_x.decoder.layers.7.final_layer_norm.weight',
+                        'model_x_to_z.decoder.layernorm_embedding.bias', 'model_x_to_z.decoder.layernorm_embedding.weight',
+                        'model_x_to_z.decoder.layers.7.final_layer_norm.bias', 'model_x_to_z.decoder.layers.7.final_layer_norm.weight']
+            
+            for name, param in iter(self.named_parameters()):
+                if param._grad is not None and (name.startswith('disc') or name in name_list):
+                    f = '{: <75}'.format(name) + '{: <10}'.format(str(param._grad.abs().mean().cpu().numpy().round(decimals=4))) +  '     '  + '{: <10}'.format(str(param.abs().mean().detach().cpu().numpy().round(decimals=4))) + '\n'
+                    log_string += f
+
+            # Specify the path of the text file
+            file_path = "param_grad_log.txt"
+
+            # Open the file in append mode and write the log_string
+            with open(file_path, "a") as file:
+                file.write(log_string)
+
+
         if (batch_idx + 1) % self.acc_grad_batch == 0:
             optimizers = self.optimizers()
             for optimizer in optimizers:
