@@ -4,7 +4,7 @@ defaults:
   - override /datamodule: scan
   - override /model: xz_autoencoder
   - override /model/discretizer: ???
-  - override /model/sequence_to_sequence_model: gpt2_gpt2
+  - override /model/sequence_to_sequence_model: bart
   - override /logger: wandb
   - override /trainer: default
 # all parameters below will be merged with parameters from default configurations set above
@@ -51,7 +51,7 @@ model:
 
     usexz: True
     usex: False
-    usez: True
+    usez: False
 
     loss_coeff:
       xzx: 0.0
@@ -60,7 +60,7 @@ model:
       supervised_seperated_z: 1.0
       quantization_zxz: 0.0                                                                                                                                                                                                                                                                                                       
       quantization_xzx: 0.0
-      quantization_supervised_seperated: 1.0
+      quantization_supervised_seperated: 0.0
 
   optimizer:
     lr: 0.005

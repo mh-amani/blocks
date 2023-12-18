@@ -10,9 +10,10 @@ class GumbelDiscreteLayer(AbstractDiscreteLayer):
         self.output_embedding = torch.nn.Linear(self.output_dim, self.vocab_size)
 
     def discretize(self, x,**kwargs) -> dict:
-        score = gumbel_softmax(x, tau=self.temperature, hard=self.hard, dim=-1)
+        logits = x/self.temperature
+        score = gumbel_softmax(logits, hard=self.hard, dim=-1)
         x_quantized = torch.matmul(score, self.dictionary.weight)
         id = torch.argmax(score, dim=-1)
-        quantization_loss = 0
-        return id, score, x_quantized, quantization_loss
+        quantization_loss = torch.tensor(0.0).to(x.device)
+        return id, score,logits, x_quantized, quantization_loss
     
