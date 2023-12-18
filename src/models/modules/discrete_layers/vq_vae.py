@@ -74,6 +74,9 @@ class VQVAEDiscreteLayer(AbstractDiscreteLayer):
             embedding_loss = self.embedding_loss(quantized_dict_only, x.detach())
             
         vq_loss = self.beta * commitment_loss + embedding_loss
+        if torch.isnan(vq_loss).any():
+            print("Loss is NaN. Adding breakpoint.")
+            breakpoint()
         
         return indices, probs, logits, quantized, vq_loss
 
@@ -89,6 +92,9 @@ class VQVAEDiscreteLayer(AbstractDiscreteLayer):
 
         # Compute the squared differences
         dist = torch.linalg.vector_norm(x_expanded - dictionary_expanded, ord=self.dist_ord, dim=-1)
+        if dist.isnan().any():
+            print("Nan in distances")
+            breakpoint()
         return dist
 
     
