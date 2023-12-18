@@ -22,6 +22,8 @@ def multiply_args_int(*args):
 def floor_division(dividend, divisor):
     return dividend // divisor
 
+def float_division(dividend, divisor):
+    return dividend / divisor
 
 def num_files_in_directory(path):
     isExist = os.path.exists(path)
@@ -69,6 +71,7 @@ OmegaConf.register_new_resolver("add_int", add_args_int)
 OmegaConf.register_new_resolver("mult_int", multiply_args_int)
 
 OmegaConf.register_new_resolver("floor_div", floor_division)
+OmegaConf.register_new_resolver("float_div", float_division)
 
 OmegaConf.register_new_resolver("num_files", num_files_in_directory)
 
