@@ -2,4 +2,4 @@ _target_: src.models.modules.discrete_layers.gumbel.GumbelDiscreteLayer
 key: gumbel
 temperature: 1.0
 hard: False
-dictionary_dim: 20
+dictionary_dim: 256
