@@ -7,3 +7,17 @@ dictionary_dim: 256
 hard: True
 beta: 0.25
 
+dictionary_weight_norm: False
+
+bottleneck_normalization_args:
+  type: null # batch norm, layer norm, weight norm or null
+  #args: #specify dictionar of args here for layer norm or weight norm
+  #args for batch norm
+  # args:
+  #   eps: 1e-5
+  #   momentum: 0.1
+  #   affine: true
+  #args for layer norm
+  # args:
+  #   eps: 1e-5
+  #   elementwise_affine: true
