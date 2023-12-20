@@ -4,7 +4,7 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --gres=gpu:2
 #SBATCH --mem=40G
-#SBATCH --time=11:59:00
+#SBATCH --time=23:59:00
 #SBATCH --output=./slurm_out/sym_ae_%j.out
 #SBATCH --error=./slurm_err/sym_ae_%j.err
 
@@ -50,11 +50,16 @@ DISC='vqvae' # 'gumbel' or 'vqvae' or 'softmax'
 # --------------------------------------------- PCFG Set ------------------------------------------------------------- #
 
 DEVICE=2
-BSIZE=100
+BSIZE=16
 DISC='vqvae' # 'gumbel' or 'vqvae' or 'softmax'
 
+# supervised
+# python3 run_train.py +experiment=pcfgset_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.99,0.99] model/discretizer=$DISC trainer.devices=$DEVICE datamodule.dataset_parameters.batch_size=$BSIZE +test=True trainer=ddp datamodule.dataset_parameters.num_workers=48 model.optimizer.lr=0.001 || true
+# python3 run_train.py +experiment=pcfgset_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.99,0.99] model/discretizer=$DISC trainer.devices=$DEVICE datamodule.dataset_parameters.batch_size=$BSIZE +test=True datamodule.dataset_parameters.num_workers=1 model.optimizer.lr=0.001 || true
+
+
 # mixed
-# python3 run_train.py +experiment=pcfgset_mixed.yaml datamodule.dataset_parameters.supervision_ratio=[0.04,0.99] model/discretizer=$DISC trainer.devices=$DEVICE datamodule.dataset_parameters.batch_size=$BSIZE +test=True trainer=ddp datamodule.dataset_parameters.num_workers=1 model.optimizer.lr=0.001 || true
+python3 run_train.py +experiment=pcfgset_mixed.yaml datamodule.dataset_parameters.supervision_ratio=[0.04,0.99] model/discretizer=$DISC trainer.devices=$DEVICE datamodule.dataset_parameters.batch_size=$BSIZE +test=True trainer=ddp datamodule.dataset_parameters.num_workers=48 model.optimizer.lr=0.001 || true
 
 
 # -------------------------------------------------------------------------------------------------------------------- #
@@ -63,11 +68,16 @@ DISC='vqvae' # 'gumbel' or 'vqvae' or 'softmax'
 # use BPE tokenizer
 # supervised:
 DEVICE=2
-BSIZE=100
+BSIZE=16
 DISC='vqvae' # 'gumbel' or 'vqvae' or 'softmax'
 
+# supervised
+# python3 run_train.py +experiment=cogs_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.99,0.99] model/discretizer=$DISC trainer.devices=$DEVICE datamodule.dataset_parameters.batch_size=$BSIZE +test=True trainer=ddp datamodule.dataset_parameters.num_workers=48 model.optimizer.lr=0.001 || true
+# python3 run_train.py +experiment=cogs_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.99,0.99] model/discretizer=$DISC trainer.devices=$DEVICE datamodule.dataset_parameters.batch_size=$BSIZE +test=True datamodule.dataset_parameters.num_workers=1 model.optimizer.lr=0.001 || true
+
+
 # mixed
-# python3 run_train.py +experiment=cogs_mixed.yaml datamodule.dataset_parameters.supervision_ratio=[0.04,0.99] model/discretizer=$DISC trainer.devices=$DEVICE datamodule.dataset_parameters.batch_size=$BSIZE +test=True trainer=ddp datamodule.dataset_parameters.num_workers=1 model.optimizer.lr=0.005 || true
+# python3 run_train.py +experiment=cogs_mixed.yaml datamodule.dataset_parameters.supervision_ratio=[0.04,0.99] model/discretizer=$DISC trainer.devices=$DEVICE datamodule.dataset_parameters.batch_size=$BSIZE +test=True trainer=ddp datamodule.dataset_parameters.num_workers=48 model.optimizer.lr=0.001 || true
 
 # -------------------------------------------------------------------------------------------------------------------- #
 # -------------------------------------------------------------------------------------------------------------------- #
@@ -75,11 +85,16 @@ DISC='vqvae' # 'gumbel' or 'vqvae' or 'softmax'
 # use BPE tokenizer
 # supervised:
 DEVICE=2
-BSIZE=100
+BSIZE=16
 DISC='vqvae' # 'gumbel' or 'vqvae' or 'softmax'
 
+# supervised
+# python3 run_train.py +experiment=cfq_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.99,0.99] model/discretizer=$DISC trainer.devices=$DEVICE datamodule.dataset_parameters.batch_size=$BSIZE +test=True trainer=ddp datamodule.dataset_parameters.num_workers=48 model.optimizer.lr=0.001 || true
+# python3 run_train.py +experiment=cfq_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.99,0.99] model/discretizer=$DISC trainer.devices=$DEVICE datamodule.dataset_parameters.batch_size=$BSIZE +test=True datamodule.dataset_parameters.num_workers=1 model.optimizer.lr=0.001 || true
+
+
 # mixed
-# python3 run_train.py +experiment=cfq_mixed.yaml datamodule.dataset_parameters.supervision_ratio=[0.04,0.99] model/discretizer=$DISC trainer.devices=$DEVICE datamodule.dataset_parameters.batch_size=$BSIZE +test=True trainer=ddp datamodule.dataset_parameters.num_workers=1 model.optimizer.lr=0.0005 || true
+# python3 run_train.py +experiment=cfq_mixed.yaml datamodule.dataset_parameters.supervision_ratio=[0.04,0.99] model/discretizer=$DISC trainer.devices=$DEVICE datamodule.dataset_parameters.batch_size=$BSIZE +test=True trainer=ddp datamodule.dataset_parameters.num_workers=48 model.optimizer.lr=0.001 || true
 
 
 deactivate

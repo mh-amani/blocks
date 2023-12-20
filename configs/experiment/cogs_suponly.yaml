@@ -28,8 +28,8 @@ datamodule:
     supervision_ratio: [0.2, 0.9] # [r(xz), r(z|not xz)]
     batch_size: 256
     num_workers: 8
-    remove_long_data_points: False
-    # print_max_lengths: True # uncomment to print max lengths of x and z, given current tokenizing strategy/configs
+    remove_long_data_points: True
+    print_max_lengths: True # uncomment to print max lengths of x and z, given current tokenizing strategy/configs
 
 
 model:
@@ -42,10 +42,10 @@ model:
     acc_grad_batch: 8
     num_bootstrap_tests: 10
 
-    max_x_length: 50 # 52 is the max length of a sentence in the dataset i think,
-    max_x_vocab_size: 100
-    max_z_length: 220 # 218 is the max length of a sentence in the dataset i think, but only 0.008 larger than 100
-    max_z_vocab_size: 100
+    max_x_length: 60 # 52 is the max length of a sentence in the dataset
+    max_x_vocab_size: 1615 # 1607
+    max_z_length: 220 # 218 is the max length of a sentence in the dataset
+    max_z_vocab_size: 1510 # 1497
 
     usexz: True
     usex: False
@@ -66,10 +66,10 @@ model:
   lr_scheduler:
     mode: "min"
     factor: 0.98
-    patience: 40
+    patience: 5
     threshold: 0.01
     threshold_mode: "abs"
-    cooldown: 40
+    cooldown: 5
     min_lr: 1e-6
     eps: 1e-8
     verbose: True
