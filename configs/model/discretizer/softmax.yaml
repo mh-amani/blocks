@@ -1,21 +1,19 @@
 _target_: src.models.modules.discrete_layers.softmax.SoftmaxContinousLayer
 key: softmax_continous
 temperature: 1.0
-<<<<<<< HEAD
-dictionary_dim: 256
-=======
 dictionary_dim: 256
 
+dictionary_weight_norm: False
+
 bottleneck_normalization_args:
-  type: batch norm # batch norm, layer norm, weight norm or null
+  type: null # batch norm, layer norm, weight norm or null
   #args: #specify dictionar of args here for layer norm or weight norm
   #args for batch norm
-  args:
-    eps: 1e-5
-    momentum: 0.1
-    affine: true
+  # args:
+  #   eps: 1e-5
+  #   momentum: 0.1
+  #   affine: true
   #args for layer norm
   # args:
   #   eps: 1e-5
   #   elementwise_affine: true
->>>>>>> 11bda90133796b6126c367867a45495e0019f3c6

@@ -415,10 +415,9 @@ class XZAutoencoder(LightningModule):
 
     
     def gd_update(self, batch, batch_idx):
-        loss, _, outputs = self.forward(batch)
+        loss, losses, outputs = self.forward(batch)
         loss = loss / self.acc_grad_batch * 1.0
         self.manual_backward(loss)
-<<<<<<< HEAD
 
         if batch_idx == 0:
             log_string = f"---------------------------------------------\nEpoch: {self.trainer.current_epoch}\n"
@@ -440,8 +439,6 @@ class XZAutoencoder(LightningModule):
                 file.write(log_string)
 
 
-=======
->>>>>>> 11bda90133796b6126c367867a45495e0019f3c6
         if (batch_idx + 1) % self.acc_grad_batch == 0:
             optimizers = self.optimizers()
 
