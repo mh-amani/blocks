@@ -34,17 +34,17 @@ datamodule:
 model:
   model_params:
     # for gradient inner product logging in val step 
-    log_gradient_stats: True
+    log_gradient_stats: False
     num_steps_log_gradient_stats: 4
     log_gradient_stats_batch_size: 32
 
     acc_grad_batch: 8
     num_bootstrap_tests: 10
 
-    max_x_length: 100 # 158 is the max length of a sentence in the dataset i think, but only 0.006 larger than 100
-    max_x_vocab_size: 100
-    max_z_length: 100 # 2020 is the max length of a sentence in the dataset i think, but only 0.008 larger than 100
-    max_z_vocab_size: 100
+    max_x_length: 100 # 158 is the max length of a sentence in the dataset
+    max_x_vocab_size: 60 # 53
+    max_z_length: 250 # 2018 is the max length of a sentence in the dataset
+    max_z_vocab_size: 50 # 40
 
     usexz: True
     usex: False
@@ -65,10 +65,10 @@ model:
   lr_scheduler:
     mode: "min"
     factor: 0.98
-    patience: 40
+    patience: 5
     threshold: 0.01
     threshold_mode: "abs"
-    cooldown: 40
+    cooldown: 5
     min_lr: 1e-6
     eps: 1e-8
     verbose: True
