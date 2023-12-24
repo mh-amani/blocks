@@ -46,12 +46,12 @@ model:
 
     max_x_length: 60 # 52 is the max length of a sentence in the dataset
     max_x_vocab_size: 1615 # 1607
-    max_z_length: 220 # 218 is the max length of a sentence in the dataset
+    max_z_length: 180 # 218 is the max length of a sentence in the dataset
     max_z_vocab_size: 1510 # 1497
 
     usexz: True
     usex: False
-    usez: True
+    usez: False
 
     loss_coeff:
       xzx: 0.05
