@@ -44,9 +44,9 @@ model:
     acc_grad_batch: 1
     num_bootstrap_tests: 10
 
-    max_x_length: 100 # 79 is the max length of a sentence in the dataset.
+    max_x_length: 82 # 79 is the max length of a sentence in the dataset.
     max_x_vocab_size: 300 # 296
-    max_z_length: 200 # 437 is the max length of a sentence in the dataset.
+    max_z_length: 180 # 437 is the max length of a sentence in the dataset.
     max_z_vocab_size: 460 # 451
 
     usexz: True
