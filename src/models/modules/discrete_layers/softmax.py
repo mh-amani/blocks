@@ -6,13 +6,10 @@ class SoftmaxContinousLayer(AbstractDiscreteLayer):
     def __init__(self, dims, **kwargs) -> None:
         super().__init__(dims, **kwargs)
 
-
-        self.out_std = 1/math.sqrt(self.output_dim)
-
         # supervised setting that work
         self.dictionary_std = 1/math.sqrt(self.dictionary_dim)
         self.input_std = 1/math.sqrt(self.dictionary_dim)
-
+        self.out_std = 1/math.sqrt(self.output_dim)
 
         self.dictionary = torch.nn.Embedding(self.vocab_size, self.dictionary_dim)
         torch.nn.init.normal_(self.dictionary.weight, mean=0, std=self.dictionary_std)

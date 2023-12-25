@@ -9,22 +9,27 @@ import math
 class VQVAEDiscreteLayer(AbstractDiscreteLayer):
     def __init__(self, dims, **kwargs) -> None:
         super().__init__(dims, **kwargs)      
-        
+
+        # supervised setting that work
+        self.dictionary_std = 1 / math.sqrt(self.dictionary_dim)
+        self.input_std = 1/math.sqrt(self.dictionary_dim * self.input_dim)
+        self.out_std = 1/math.sqrt(self.output_dim) * self.dictionary_std
+
         # self.logit_scale = torch.tensor((self.dictionary_dim * 2)**0.5, requires_grad=False)
         self.logit_scale = torch.tensor((2)**0.5, requires_grad=False)
         self.logit_init = nn.Parameter(torch.ones([]) * np.log(self.dictionary_dim), requires_grad=False)
         
         self.dictionary = nn.Embedding(self.vocab_size, self.dictionary_dim)
-        torch.nn.init.uniform_(self.dictionary.weight, -1, 1)
+        torch.nn.init.normal_(self.dictionary.weight, mean=0, std=self.dictionary_std)
         self.output_embedding = nn.Linear(self.output_dim, self.dictionary_dim, bias=True)
-        torch.nn.init.normal_(self.output_embedding.weight, mean=0, std=1/ 3 / math.sqrt(self.output_dim))
+        torch.nn.init.normal_(self.output_embedding.weight, mean=0, std=self.out_std)
 
         # self.output_embedding = lambda x: x
         self.encoder_embedding = nn.Linear(self.dictionary_dim, self.input_dim, bias=False)
-        torch.nn.init.normal_(self.encoder_embedding.weight, mean=0, std=1/math.sqrt(self.dictionary_dim))
+        torch.nn.init.normal_(self.encoder_embedding.weight, mean=0, std=self.input_std)
         # self.encoder_embedding = lambda x: x
         self.decoder_embedding = nn.Linear(self.dictionary_dim, self.output_dim, bias=False)
-        torch.nn.init.normal_(self.decoder_embedding.weight, mean=0, std=1/math.sqrt(self.dictionary_dim))
+        torch.nn.init.normal_(self.decoder_embedding.weight, mean=0, std=self.input_std)
         # self.decoder_embedding = lambda x: x
 
         self.dist_ord = kwargs.get('dist_ord', 2) 
@@ -33,20 +38,7 @@ class VQVAEDiscreteLayer(AbstractDiscreteLayer):
         self.kernel = nn.Softmax(dim=-1)
         self.beta = kwargs.get("beta",0.25) #0.25 is the beta used in the vq-vae paper
         
-    ###################
-    #Probably can remove these as we are using th matrix projection now
-    # def fetch_embeddings_by_index(self,indices):
-    #     if self.normalize_embeddings:
-    #         return nn.functional.normalize(self.dictionary(indices),dim=-1)
-    #     #~else
-    #     return self.dictionary(indices)
-        
-    # def fetch_embedding_matrix(self):
-    #     if self.normalize_embeddings:
-    #         return nn.functional.normalize(self.dictionary.weight,dim=-1)
-    #     #~else
-    #     return self.dictionary.weight
-    ###################
+    
     def embedding_loss(self, quantized, x):
         return(self.embedding_loss_torch(quantized, x, reduction='none').mean(dim=-1))
     
@@ -56,11 +48,15 @@ class VQVAEDiscreteLayer(AbstractDiscreteLayer):
         # logits = - dists/self.logit_scale * self.logit_init * self.temperature
         probs = self.kernel(logits)
         indices = torch.argmax(probs, dim=-1)
+        one_hot_probs = torch.nn.functional.one_hot(indices, num_classes=probs.shape[-1])
 
         if self.hard:
             # Apply STE for hard quantization
-            quantized_dict_only = self.dictionary(indices)#self.fetch_embeddings_by_index(indices)
-            quantized = quantized_dict_only + x - (x).detach()
+            # quantized_dict_only = self.dictionary(indices)#self.fetch_embeddings_by_index(indices)
+            # quantized = quantized_dict_only + x - (x).detach()
+            forward_probs = one_hot_probs + probs - probs.detach()
+            quantized = torch.matmul(forward_probs,  self.dictionary.weight)
+            quantized_dict_only = self.dictionary(indices)
         else:
             quantized = torch.matmul(probs,  self.dictionary.weight)
 

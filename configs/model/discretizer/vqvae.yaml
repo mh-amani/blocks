@@ -1,6 +1,6 @@
 _target_: src.models.modules.discrete_layers.vq_vae.VQVAEDiscreteLayer
 key: vqvae
-temperature: 10.0
+temperature: 1.0
 label_smoothing_scale: 0.0
 dist_ord: 2
 dictionary_dim: 256
