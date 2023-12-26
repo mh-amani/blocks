@@ -50,7 +50,7 @@ BSIZE=100
 DISC='softmax' # 'gumbel' or 'vqvae' or 'softmax'
 
 # supervised
-# python3 run_train.py +experiment=pcfgset_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.99,0.99] model/discretizer=$DISC trainer.devices=$DEVICE datamodule.dataset_parameters.batch_size=$BSIZE +test=True trainer=ddp datamodule.dataset_parameters.num_workers=48 model.optimizer.lr=0.001 || true
+# python3 run_train.py +experiment=pcfgset_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.16,0.99] model/discretizer=$DISC trainer.devices=$DEVICE datamodule.dataset_parameters.batch_size=$BSIZE +test=True trainer=ddp model.optimizer.lr=0.001 || true
 # python3 run_train.py +experiment=pcfgset_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.99,0.99] model/discretizer=$DISC trainer.devices=$DEVICE datamodule.dataset_parameters.batch_size=$BSIZE +test=True datamodule.dataset_parameters.num_workers=1 model.optimizer.lr=0.001 || true
 
 
