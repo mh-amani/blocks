@@ -4,7 +4,7 @@ defaults:
   - override /datamodule: pcfg_set
   - override /model: xz_autoencoder
   - override /model/discretizer: ???
-  - override /model/sequence_to_sequence_model: gpt2_gpt2
+  - override /model/sequence_to_sequence_model: bart
   - override /logger: wandb
   - override /trainer: default
 # all parameters below will be merged with parameters from default configurations set above

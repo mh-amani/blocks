@@ -179,9 +179,10 @@ class XZAutoencoder(LightningModule):
         encoder_attentions = output.encoder_attentions
 
         id, score, logits, quantized_vector, quantization_loss = discretizer(output_embed)
+        p_eos = score[:, :, self.eos_token_id]
         current_eos_flag = id == self.eos_token_id
         
-        return(id, score, logits, quantized_vector, quantization_loss, current_eos_flag, past_key_values, encoder_last_hidden_state, hidden_state, encoder_attentions)
+        return(id, score, logits, quantized_vector, quantization_loss, current_eos_flag, p_eos, past_key_values, encoder_last_hidden_state, hidden_state, encoder_attentions)
 
     # @profile
     def sequential_forward(self, model, discretizer, input_embeds, input_attention_mask, output_embeds, max_length, output_attention_mask=None):
@@ -191,7 +192,7 @@ class XZAutoencoder(LightningModule):
         quantization_loss = 0
 
         # first step to get the past_key_values
-        id, score, logit, quantized_vector, quantization_loss, eos_flag, past_key_values, encoder_last_hidden_state, hidden_state, encoder_attentions = \
+        id, score, logit, quantized_vector, quantization_loss, eos_flag, p_eos, past_key_values, encoder_last_hidden_state, hidden_state, encoder_attentions = \
             self.one_step_sequential_forward(model, discretizer, input_embeds, input_attention_mask,
                                                     output_embeds, output_attention_mask=output_attention_mask)
         
@@ -199,12 +200,14 @@ class XZAutoencoder(LightningModule):
         # if self.decode_after_autoreg_step:
         output_embed = discretizer.discrete_embedding_to_decoder(quantized_vector)
 
+        p_not_eos = torch.ones(output_embeds.shape[0], 1, device=input_embeds.device) - p_eos
+
         # Added for doing average on quantization loss
         counter = 1
         output_attention_mask = torch.cat((output_attention_mask, torch.logical_not(eos_flag)), dim=1)
         
         while output_attention_mask.shape[1] < max_length and not torch.all(eos_flag):
-            current_id, current_score, current_logit, current_quantized_vector, current_quantization_loss, current_eos_flag, past_key_values, encoder_last_hidden_state, hidden_state, encoder_attentions= \
+            current_id, current_score, current_logit, current_quantized_vector, current_quantization_loss, current_eos_flag, current_p_eos, past_key_values, encoder_last_hidden_state, hidden_state, encoder_attentions= \
             self.one_step_sequential_forward(model, discretizer, input_embeds, input_attention_mask,
                                                     output_embed, output_attention_mask=output_attention_mask, # used to be torch.logical_not(eos_flag) for gpt2-gpt2
                                                     past_key_values=past_key_values,
@@ -222,10 +225,12 @@ class XZAutoencoder(LightningModule):
             output_embed = discretizer.discrete_embedding_to_decoder(current_quantized_vector)
             
             eos_flag = torch.logical_or(eos_flag, current_eos_flag)
+            current_p_not_eos = torch.ones(output_embeds.shape[0], 1, device=input_embeds.device) - current_p_eos
+            p_not_eos = torch.cat((p_not_eos, current_p_not_eos * p_not_eos[...,-1:]), dim=1)
             output_attention_mask = torch.cat((output_attention_mask, torch.logical_not(eos_flag)), dim=1)
             quantization_loss += (current_quantization_loss * torch.logical_not(eos_flag).float())
         
-        return id, score, logit, quantized_vector, quantization_loss.sum()/output_attention_mask.sum() , output_attention_mask, eos_flag
+        return id, score, logit, quantized_vector, quantization_loss.sum()/output_attention_mask.sum() , output_attention_mask, eos_flag, p_not_eos
         
 
     
@@ -244,7 +249,7 @@ class XZAutoencoder(LightningModule):
         z_scores = torch.nn.functional.one_hot(z_ids, num_classes=self.disc_z.vocab_size).float()
         z_embeds = self.disc_z.embed_dec_from_id(z_ids)
         
-        z_ids, z_scores, z_logits, quantized_vector, z_quantization_loss, z_attention_mask, eos_flag = \
+        z_ids, z_scores, z_logits, quantized_vector, z_quantization_loss, z_attention_mask, eos_flag, p_not_eos = \
             self.sequential_forward(self.model_x_to_z, self.disc_z, x_embeds_enc, x_attention_mask, z_embeds, self.max_z_length - 1, output_attention_mask)
         
         x_embeds_dec = self.disc_x.embed_dec_from_id(x_ids)
@@ -252,6 +257,10 @@ class XZAutoencoder(LightningModule):
         quantized_z_embeds = self.disc_z.discrete_embedding_to_encoder(quantized_vector)
         z_embeds = torch.cat((self.disc_z.embed_enc_from_id(self.bos_token_id * torch.ones(z_embeds.shape[0], 1, device=z_embeds.device, dtype=torch.long)), quantized_z_embeds), dim=1)
         # z_attention_mask = torch.cat((torch.ones(z_attention_mask.shape[0], 1, device=z_attention_mask.device, dtype=torch.bool), z_attention_mask), dim=1)
+        p_not_eos = torch.cat((torch.ones(z_attention_mask.shape[0], 1, device=z_attention_mask.device), p_not_eos), dim=1)
+        
+        z_attention_mask = z_attention_mask + p_not_eos - p_not_eos.detach()
+        # z_attention_mask = z_attention_mask * p_not_eos
 
         out_x = self.model_z_to_x(inputs_embeds=z_embeds, attention_mask=z_attention_mask,
                                                 decoder_inputs_embeds=x_embeds_dec, decoder_attention_mask=x_attention_mask,
@@ -263,7 +272,7 @@ class XZAutoencoder(LightningModule):
         
         return {'x_hat_ids': x_hat_ids, 'x_hat_scores':x_hat_scores, 
                 'z_hat_ids': z_ids, 'z_hat_scores': z_scores, 'quantization_loss': quantization_loss,
-                'x_hat_logits': x_hat_logits, 'z_hat_logits': z_logits}     
+                'x_hat_logits': x_hat_logits, 'z_hat_logits': z_logits, 'p_not_eos': p_not_eos}     
 
 
     def forward_zxz(self, z_ids):
@@ -276,7 +285,7 @@ class XZAutoencoder(LightningModule):
         x_scores = torch.nn.functional.one_hot(x_ids, num_classes=self.disc_x.vocab_size).float()
         x_embeds = self.disc_x.embed_dec_from_id(x_ids)
 
-        x_ids, x_scores, x_logits, quantized_vector, x_quantization_loss, x_attention_mask, eos_flag = \
+        x_ids, x_scores, x_logits, quantized_vector, x_quantization_loss, x_attention_mask, eos_flag, p_not_eos = \
             self.sequential_forward(self.model_z_to_x, self.disc_x, z_embeds_enc, z_attention_mask, x_embeds, self.max_x_length - 1, output_attention_mask)
 
         z_embeds_dec = self.disc_z.embed_dec_from_id(z_ids)
@@ -284,6 +293,10 @@ class XZAutoencoder(LightningModule):
         quantized_x_embeds = self.disc_x.discrete_embedding_to_encoder(quantized_vector)
         x_embeds = torch.cat((self.disc_x.embed_enc_from_id(self.bos_token_id * torch.ones(x_embeds.shape[0], 1, device=x_embeds.device, dtype=torch.long)), quantized_x_embeds), dim=1)
         # x_attention_mask = torch.cat((torch.ones(x_attention_mask.shape[0], 1, device=x_attention_mask.device, dtype=torch.bool), x_attention_mask), dim=1)
+        p_not_eos = torch.cat((torch.ones(x_attention_mask.shape[0], 1, device=x_attention_mask.device), p_not_eos), dim=1)
+
+        x_attention_mask = x_attention_mask + p_not_eos - p_not_eos.detach()
+        # x_attention_mask = x_attention_mask * p_not_eos
 
         out_z = self.model_x_to_z(inputs_embeds=x_embeds, attention_mask=x_attention_mask,
                                                 decoder_inputs_embeds=z_embeds_dec, decoder_attention_mask=z_attention_mask,
@@ -296,7 +309,7 @@ class XZAutoencoder(LightningModule):
 
         return {'x_hat_ids': x_ids, 'x_hat_scores': x_scores,
                 'z_hat_ids': z_hat_ids, 'z_hat_scores': z_hat_scores, 'quantization_loss': quantization_loss,
-                'x_hat_logits': x_logits, 'z_hat_logits': z_hat_logits}
+                'x_hat_logits': x_logits, 'z_hat_logits': z_hat_logits, 'p_not_eos': p_not_eos}
          
 
     def forward_supervised_seperated(self, x_ids, z_ids):
