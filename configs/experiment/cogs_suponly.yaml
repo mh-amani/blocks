@@ -4,7 +4,7 @@ defaults:
   - override /datamodule: cogs
   - override /model: xz_autoencoder
   - override /model/discretizer: ???
-  - override /model/sequence_to_sequence_model: gpt2_gpt2
+  - override /model/sequence_to_sequence_model: bart
   - override /logger: wandb
   - override /trainer: default
 # all parameters below will be merged with parameters from default configurations set above
@@ -42,7 +42,7 @@ model:
     acc_grad_batch: 8
     num_bootstrap_tests: 10
 
-     max_x_length: 60 # 52 is the max length of a sentence in the dataset
+    max_x_length: 60 # 52 is the max length of a sentence in the dataset
     max_x_vocab_size: 1615 # 1607
     max_z_length: 220 # 218 is the max length of a sentence in the dataset
     max_z_vocab_size: 1510 # 1497

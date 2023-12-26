@@ -4,7 +4,7 @@ defaults:
   - override /datamodule: pcfg_set
   - override /model: xz_autoencoder
   - override /model/discretizer: ???
-  - override /model/sequence_to_sequence_model: gpt2_gpt2
+  - override /model/sequence_to_sequence_model: bart
   - override /logger: wandb
   - override /trainer: default
 # all parameters below will be merged with parameters from default configurations set above
@@ -28,15 +28,15 @@ datamodule:
     supervision_ratio: [0.2, 0.5] # [r(xz), r(z|not xz)]
     batch_size: 256
     num_workers: 8
-    remove_long_data_points: False
-    # print_max_lengths: True # uncomment to print max lengths of x and z, given current tokenizing strategy/config
+    remove_long_data_points: True
+    print_max_lengths: True # uncomment to print max lengths of x and z, given current tokenizing strategy/config
 
 model:
   model_params:
     # for gradient inner product logging in val step 
     log_gradient_stats: False
     num_steps_log_gradient_stats: 4
-    log_gradient_stats_batch_size: 32
+    log_gradient_stats_batch_size: 8
 
     acc_grad_batch: 8
     num_bootstrap_tests: 10

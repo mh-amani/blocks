@@ -21,6 +21,9 @@ datamodule:
     supervision_ratio: [0.002, 0.9] # [r(xz), r(z|not xz)]
     batch_size: 64
     num_workers: 48
+    remove_long_data_points: True
+    print_max_lengths: True # uncomment to print max lengths of x and z, given current tokenizing strategy/configs
+
 
 callbacks:
   supervision_scheduler:
