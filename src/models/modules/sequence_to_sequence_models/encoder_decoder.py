@@ -23,7 +23,9 @@ def EncoderDecoder(**kwargs):
 
 def Bart(special_tokens_ids, **kwargs):    
 
-    hparams = OmegaConf.create(kwargs)        
+    hparams = OmegaConf.create(kwargs)
+    max_length = max(kwargs['config_encoder']['n_positions'],  kwargs['config_decoder']['n_positions'])
+    hparams.config.max_position_embeddings = max_length
     config = hydra.utils.instantiate(hparams.config, _recursive_ = False)
     config.bos_token_id = special_tokens_ids['bos_token_id']
     config.eos_token_id = special_tokens_ids['eos_token_id']
