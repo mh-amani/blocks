@@ -52,8 +52,11 @@ class VQVAEDiscreteLayer(AbstractDiscreteLayer):
 
         if self.hard:
             # Apply STE for hard quantization
+            # there are two ways to do this
+            # way 1
             # quantized_dict_only = self.dictionary(indices)#self.fetch_embeddings_by_index(indices)
             # quantized = quantized_dict_only + x - (x).detach()
+            # way 2
             forward_probs = one_hot_probs + probs - probs.detach()
             quantized = torch.matmul(forward_probs,  self.dictionary.weight)
             quantized_dict_only = self.dictionary(indices)

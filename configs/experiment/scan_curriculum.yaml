@@ -53,8 +53,8 @@ model:
       loss_coeff:
         xzx: 1.0
         zxz: 1.0
-        supervised_seperated_x: 1.0
-        supervised_seperated_z: 1.0
+        supervised_seperated_x: 0.1
+        supervised_seperated_z: 0.1
         quantization_zxz: 0.0                                                                                                                                                                                                                                                                                                        
         quantization_xzx: 0.0
         quantization_supervised_seperated: 0.0
@@ -66,7 +66,7 @@ model:
     lr_scheduler: # ${model.lr_scheduler}
       mode: "min"
       factor: 0.98
-      patience: 20
+      patience: 5
       threshold: 0.01
       threshold_mode: "abs"
       cooldown: 5
@@ -77,15 +77,15 @@ model:
 callbacks:
   supervision_scheduler:
     scheduler_xz:
-      num_warmup_steps: 1
+      num_warmup_steps: 10
       num_training_steps: 300
-      hp_init: 0.8
-      hp_end: 0.8
+      hp_init: 1.0
+      hp_end: 0.5
     scheduler_z:
       # between 0 and 1, saying given that a sample is not xz, how likely is it to be z.
       num_warmup_steps: 300
       num_training_steps: 500
-      hp_init: 0.8
+      hp_init: 1.0
       hp_end: 0.8
 
 
