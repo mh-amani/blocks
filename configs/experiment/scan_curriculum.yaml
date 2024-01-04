@@ -43,7 +43,7 @@ model:
       
       usexz: True
       usex: False
-      usez: True
+      usez: False
 
       max_x_length: 20
       max_x_vocab_size: 25
@@ -53,8 +53,8 @@ model:
       loss_coeff:
         xzx: 1.0
         zxz: 1.0
-        supervised_seperated_x: 0.1
-        supervised_seperated_z: 0.1
+        supervised_seperated_x: 1.0
+        supervised_seperated_z: 1.0
         quantization_zxz: 0.0                                                                                                                                                                                                                                                                                                        
         quantization_xzx: 0.0
         quantization_supervised_seperated: 0.0
