@@ -33,6 +33,7 @@ DEVICE=[0]
 NAME="scan_final"
 LR=0.001
 SEQMODEL='bart' # 'gpt2_gpt2' or 'bart'
+COMMENT="resampled datamodule"
 
 # supervised, 02
 CKPT="'/dlabdata1/masani/blocks/logs/training/runs/scan/suponly-[0.02, 0.9]-bart-softmax_continous/2023-12-28_12-38-04/checkpoints/last.ckpt'"
@@ -64,7 +65,7 @@ python3 run_train.py +experiment=scan_curriculum.yaml datamodule.dataset_paramet
 python3 run_train.py +experiment=scan_curriculum.yaml datamodule.dataset_parameters.supervision_ratio=[0.04,0.9] trainer.devices=$DEVICE datamodule.dataset_parameters.batch_size=$BSIZE sequence_to_sequence_model_key=$SEQMODEL discretizer_key=$DISC model.checkpoint_path="$CKPT" model/lr_scheduler=cosine_annealing +test=True
 
 # otherwise mixed unsup training:
-python3 run_train.py +experiment=scan_mixed.yaml datamodule.dataset_parameters.supervision_ratio=[0.04,0.7] model/discretizer=$DISC trainer.devices=$DEVICE datamodule.dataset_parameters.batch_size=$BSIZE +test=True logger.wandb.notes="mixed xz -> 0"
+python3 run_train.py +experiment=scan_mixed.yaml datamodule.dataset_parameters.supervision_ratio=[0.04,0.7] model/discretizer=$DISC trainer.devices=$DEVICE datamodule.dataset_parameters.batch_size=$BSIZE +test=True logger.wandb.notes="mixed xz"
 
 # only zxz
 python3 run_train.py +experiment=scan_mixed.yaml datamodule.dataset_parameters.supervision_ratio=[0.01,0.99] model/discretizer=$DISC trainer.devices=$DEVICE datamodule.dataset_parameters.batch_size=$BSIZE +test=True callbacks.supervision_scheduler.scheduler_xz.hp_init=0.0 callbacks.supervision_scheduler.scheduler_xz.hp_end=0.0 callbacks.supervision_scheduler.scheduler_z.hp_init=1.0 callbacks.supervision_scheduler.scheduler_z.hp_end=1.0 model.model_params.loss_coeff.zxz=1.0 model.lr_scheduler.monitor="val/loss/zxz" model.optimizer.lr=$LR num_epochs=1000 logger.wandb.notes="only zxz" name=$NAME 
@@ -84,7 +85,8 @@ python3 run_inference.py +experiment/inference=inference datamodule=scan datamod
 # # supervised:
 DEVICE=0
 BSIZE=256
-DISC='vqvae' # 'gumbel' or 'vqvae' or 'softmax'
+DISC='softmax' # 'gumbel' or 'vqvae' or 'softmax'
+NAME="sfst_final"
 
 
 # supervised:

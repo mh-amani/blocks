@@ -57,16 +57,17 @@ class SCANDataset(AbstractDataset):
                 self.train_dataset, self.val_dataset = self.split_train_val(self.loaded_dataset)
                 self.test_dataset = self.loaded_dataset['test']
 
+            train_len = len(self.train_dataset)
+            trainset = self.assign_data_type(train_len)
+
             SCANDataset.datum = {}
-            SCANDataset.datum['train'] = self.train_dataset
-            SCANDataset.train_len = len(self.train_dataset)
+            SCANDataset.datum['train'] = trainset
             SCANDataset.datum['val'] = self.val_dataset
             SCANDataset.datum['test'] = self.test_dataset
 
             SCANDataset.has_split = True  # mark that the split has been performed
 
-            self.assign_data_type(SCANDataset.train_len)
-
+        
         self.data = SCANDataset.datum[self.split]
         self.data_type = SCANDataset.data_type[self.split]
 

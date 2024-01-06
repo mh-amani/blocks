@@ -23,7 +23,7 @@ class randomSupervisionSampler(Sampler):
         self.data_source = data_source
         
         self.sup_len_xz = self.data_source.sup_len_xz
-        self.sup_len_x = self.data_source.sup_len_x
+        self.sup_len_unsup = self.data_source.sup_len_unsup
 
         self.batch_size = batch_size
         self.data_type_sampling_probability = data_type_sampling_probability
@@ -72,10 +72,10 @@ class randomSupervisionSampler(Sampler):
         for coin_toss in coin_tosses:
             if coin_toss <= self.data_type_sampling_probability[0] and self.sup_len_xz>0:
                 indices.extend(torch.randint(high=self.sup_len_xz, size=(self.batch_size,), dtype=torch.int64, generator=g).tolist())
-            elif coin_toss <= (self.data_type_sampling_probability[0] + (1 - self.data_type_sampling_probability[0]) * (1 - self.data_type_sampling_probability[1])) and self.sup_len_x>0:
-                indices.extend(torch.randint(low=self.sup_len_xz, high=self.sup_len_xz + self.sup_len_x, size=(self.batch_size,), dtype=torch.int64, generator=g).tolist())
-            elif self.data_source_len > self.sup_len_xz + self.sup_len_x:
-                indices.extend(torch.randint(low=self.sup_len_xz + self.sup_len_x, high=self.data_source_len, size=(self.batch_size, ), dtype=torch.int64, generator=g).tolist())
+            elif coin_toss <= (self.data_type_sampling_probability[0] + (1 - self.data_type_sampling_probability[0]) * (1 - self.data_type_sampling_probability[1])) and self.sup_len_unsup>0:
+                indices.extend(torch.randint(low=self.sup_len_xz, high=self.sup_len_xz + self.sup_len_unsup, size=(self.batch_size,), dtype=torch.int64, generator=g).tolist())
+            elif self.data_source_len > self.sup_len_xz + self.sup_len_unsup:
+                indices.extend(torch.randint(low=self.sup_len_xz + self.sup_len_unsup, high=self.data_source_len, size=(self.batch_size, ), dtype=torch.int64, generator=g).tolist())
             else:
                 raise ValueError("No data to sample from")
 
@@ -139,7 +139,7 @@ class randomSupervisionSamplerDDP(DistributedSampler):
         self.data_type_sampling_probability = kwargs['data_type_sampling_probability']
         
         self.sup_len_xz = dataset.sup_len_xz
-        self.sup_len_x = dataset.sup_len_x
+        self.sup_len_unsup = dataset.sup_len_unsup
         self.data_source_len = len(dataset)
         self.batch_size = kwargs['batch_size']
         
@@ -168,10 +168,10 @@ class randomSupervisionSamplerDDP(DistributedSampler):
         for coin_toss in coin_tosses:
             if coin_toss <= self.data_type_sampling_probability[0] and self.sup_len_xz>0:
                 indices.extend(torch.randint(high=self.sup_len_xz, size=(self.replica_size,), dtype=torch.int64, generator=g).tolist())
-            elif coin_toss <= (self.data_type_sampling_probability[0] + (1 - self.data_type_sampling_probability[0]) * (1 - self.data_type_sampling_probability[1])) and self.sup_len_x>0:
-                indices.extend(torch.randint(low=self.sup_len_xz, high=self.sup_len_xz + self.sup_len_x, size=(self.replica_size,), dtype=torch.int64, generator=g).tolist())
-            elif self.data_source_len > self.sup_len_xz + self.sup_len_x:
-                indices.extend(torch.randint(low=self.sup_len_xz + self.sup_len_x, high=self.data_source_len, size=(self.replica_size, ), dtype=torch.int64, generator=g).tolist())
+            elif coin_toss <= (self.data_type_sampling_probability[0] + (1 - self.data_type_sampling_probability[0]) * (1 - self.data_type_sampling_probability[1])) and self.sup_len_unsup>0:
+                indices.extend(torch.randint(low=self.sup_len_xz, high=self.sup_len_xz + self.sup_len_unsup, size=(self.replica_size,), dtype=torch.int64, generator=g).tolist())
+            elif self.data_source_len > self.sup_len_xz + self.sup_len_unsup:
+                indices.extend(torch.randint(low=self.sup_len_xz + self.sup_len_unsup, high=self.data_source_len, size=(self.replica_size, ), dtype=torch.int64, generator=g).tolist())
             else:
                 raise ValueError("No data to sample from")
 

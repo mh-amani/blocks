@@ -59,15 +59,27 @@ class AbstractDataset(Dataset):
         Add a supervision label to each data point in the train dataset
         """
         AbstractDataset.sup_len_xz = int(self.supervision_ratio[0] * train_length)
-        AbstractDataset.sup_len_x = int( (1 - self.supervision_ratio[0]) * (1 - self.supervision_ratio[1]) * train_length)
+        AbstractDataset.sup_len_unsup = int( (1 - self.supervision_ratio[0]) * self.supervision_ratio[1] * train_length)
+
+        idx_xz = np.random.choice(train_length, AbstractDataset.sup_len_xz, replace=False)
+        idx_x = np.random.choice(train_length, AbstractDataset.sup_len_unsup, replace=False)
+        idx_z = np.random.choice(train_length, AbstractDataset.sup_len_unsup, replace=False)
+        
+        trainset_xz = torch.utils.data.Subset(self.train_dataset, idx_xz)
+        trainset_x = torch.utils.data.Subset(self.train_dataset, idx_x)
+        trainset_z = torch.utils.data.Subset(self.train_dataset, idx_z)
+        total_length = len(trainset_xz) + len(trainset_x) + len(trainset_z)
+        trainset = torch.utils.data.ConcatDataset([trainset_xz, trainset_x, trainset_z])
+
         # data_type should be [X_available, Z_available], where 1 means available and 0 means unavailable
         AbstractDataset.data_type = {}
-        AbstractDataset.data_type['train'] = np.ones((len(self.train_dataset), 2), dtype=np.bool_)
-        AbstractDataset.data_type['train'][AbstractDataset.sup_len_xz:AbstractDataset.sup_len_xz + AbstractDataset.sup_len_x] = np.array([1, 0], dtype=np.bool_)
-        AbstractDataset.data_type['train'][AbstractDataset.sup_len_xz + AbstractDataset.sup_len_x:] = np.array([0, 1], dtype=np.bool_)
+        AbstractDataset.data_type['train'] = np.ones((total_length, 2), dtype=np.bool_)
+        AbstractDataset.data_type['train'][AbstractDataset.sup_len_xz:AbstractDataset.sup_len_xz + AbstractDataset.sup_len_unsup] = np.array([1, 0], dtype=np.bool_)
+        AbstractDataset.data_type['train'][AbstractDataset.sup_len_xz + AbstractDataset.sup_len_unsup:] = np.array([0, 1], dtype=np.bool_)
 
         AbstractDataset.data_type['val'] = np.ones((len(self.val_dataset),2), dtype=np.bool_)
         AbstractDataset.data_type['test'] = np.ones((len(self.test_dataset),2), dtype=np.bool_)
+        return trainset
 
     def __getitem__(self, idx):
         # supervision can be X, Z or XZ

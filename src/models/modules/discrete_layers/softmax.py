@@ -31,9 +31,9 @@ class SoftmaxContinousLayer(AbstractDiscreteLayer):
     def discretize(self, x,**kwargs) -> dict:
         logits= x/self.logit_std / self.temperature
         score = torch.softmax(logits, dim=-1)
-        id = torch.argmax(score, dim=-1)
+        ids = torch.argmax(score, dim=-1)
         # x_quantized = torch.matmul(score, self.dictionary.weight)
-        x_quantized = torch.matmul(score, self.dictionary.weight) - torch.matmul(score, self.dictionary.weight).detach() + self.dictionary(id)
+        x_quantized = torch.matmul(score, self.dictionary.weight) - torch.matmul(score, self.dictionary.weight).detach() + self.dictionary(ids)
         quantization_loss = torch.tensor(0.0).to(x.device)
-        return id, score, logits, x_quantized, quantization_loss
+        return ids, score, logits, x_quantized, quantization_loss
     
