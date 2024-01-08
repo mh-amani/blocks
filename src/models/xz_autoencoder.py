@@ -97,10 +97,10 @@ class XZAutoencoder(LightningModule):
         self.manual_accuracy = {}
         self.manual_accuracy_sentence = {}
         for stage in ['val', 'test']:
-            for type in ['teacherforced', 'autoreg', 'autoreg_hidden_layer']:
+            for mode in ['teacherforced', 'autoreg', 'autoreg_hidden_layer']:
                 for variable in ['X', 'Z']:
-                    acc_name = f'{stage}/{type}/accuracy/{variable}'
-                    sentence_acc_name = f'{stage}/{type}/sentence-accuracy/{variable}'
+                    acc_name = f'{stage}/{mode}/accuracy/{variable}'
+                    sentence_acc_name = f'{stage}/{mode}/sentence-accuracy/{variable}'
                     # self.accuracy[acc_name] = src.metrics.Accuracy(self.pad_token_id)
                     self.accuracy[acc_name] = torchmetrics.classification.MulticlassAccuracy(num_classes=numclasses[variable] ,ignore_index=self.pad_token_id)
                     self.accuracy_sentence[sentence_acc_name] = torchmetrics.classification.MulticlassExactMatch(num_classes=numclasses[variable] ,ignore_index=self.pad_token_id)
@@ -140,10 +140,10 @@ class XZAutoencoder(LightningModule):
         # self.accuracy = {}
         # self.accuracy_sentence = {}
         # for stage in ['train', 'val', 'test']:
-        #     for type in ['teacherforced', 'autoreg', 'autoreg_hidden_layer']:
+        #     for mode in ['teacherforced', 'autoreg', 'autoreg_hidden_layer']:
         #         for variable in ['X', 'Z']:
-        #             acc_name = f'{stage}/{type}/accuracy/{variable}'
-        #             sentence_acc_name = f'{stage}/{type}/sentence-accuracy/{variable}'
+        #             acc_name = f'{stage}/{mode}/accuracy/{variable}'
+        #             sentence_acc_name = f'{stage}/{mode}/sentence-accuracy/{variable}'
         #             self.accuracy[acc_name] = src.metrics.Accuracy(self.pad_token_id).to(self.device)
         #             self.accuracy_sentence[sentence_acc_name] = torchmetrics.classification.MulticlassExactMatch(num_classes=numclasses ,ignore_index=self.pad_token_id).to(self.device)
 
