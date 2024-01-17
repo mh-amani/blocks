@@ -1,12 +1,12 @@
 # @package _global_
 
 defaults:
-  - override /datamodule: pcfg_set.yaml
+  - override /datamodule: cogs.yaml
   - override /model: load_from_pretrained.yaml
 
 # name of the run determines folder name in logs
-name: "pcfg_sigmae"
-run_name: "curriculum-${datamodule.dataset_parameters.supervision_ratio}-${sequence_to_sequence_model_key}-${discretizer_key}" 
+name: "cogs_sigmae"
+run_name: "curriculum-reverse-${datamodule.dataset_parameters.supervision_ratio}-${sequence_to_sequence_model_key}-${discretizer_key}" 
 
 sequence_to_sequence_model_key: ???
 discretizer_key: ???
@@ -16,9 +16,10 @@ overfit_batch: 0
 
 trainer:
   devices: [0] # 'auto', or numbers like 2, [0]
-  accelerator: 'gpu' #cpu, tpu, (devices=4, accelerator="gpu", strategy="ddp"), (devices="auto", accelerator="auto")  
+  accelerator: 'gpu' #cpu, tpu, (devices=4, accelerator="gpu", strategy="ddp"), (devices="auto", accelerator="auto") 
   max_epochs: 1000
-  min_epochs: 1000
+  min_epochs: 1000 
+
 
 datamodule:
   dataset_parameters:
@@ -42,10 +43,10 @@ model:
       acc_grad_batch: 1
       num_bootstrap_tests: 10
 
-      max_x_length: 100 # 158 is the max length of a sentence in the dataset
-      max_x_vocab_size: 60 # 53
-      max_z_length: 250 # 2018 is the max length of a sentence in the dataset
-      max_z_vocab_size: 50 # 40
+      max_x_length: 60 # 52 is the max length of a sentence in the dataset
+      max_x_vocab_size: 1615 # 1607
+      max_z_length: 180 # 218 is the max length of a sentence in the dataset
+      max_z_vocab_size: 1510 # 1497
 
       usexz: True
       usex: False
@@ -75,17 +76,19 @@ model:
       eps: 1e-8
       verbose: True
 
+
 callbacks:
   supervision_scheduler:
     scheduler_xz:
       num_warmup_steps: 1 # when to start (epochs)
       num_training_steps: 50 # epoch
-      hp_init: 1.0
-      hp_end: 0.8
+      hp_init: 0.0
+      hp_end: 0.5
     scheduler_z:
       # between 0 and 1, saying given that a sample is not xz, how likely is it to be z.
       num_warmup_steps: 300
       num_training_steps: 400
       hp_init: 1.0
       hp_end: 1.0
+
 

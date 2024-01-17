@@ -4,7 +4,7 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --gres=gpu:40gb:1
 #SBATCH --mem=40G
-#SBATCH --time=35:59:00
+#SBATCH --time=23:59:00
 #SBATCH --output=./slurm_out/sym_ae_%j.out
 #SBATCH --error=./slurm_err/sym_ae_%j.err
 
@@ -45,14 +45,24 @@ DISC='vqvae' # 'gumbel' or 'vqvae' or 'softmax'
 # --------------------------------------------- PCFG Set ------------------------------------------------------------- #
 
 DEVICE=2
-BSIZE=64
-DISC='softmax' # 'gumbel' or 'vqvae' or 'softmax'
+BSIZE=128
+DISC='vqvae' # 'gumbel' or 'vqvae' or 'softmax'
+SEQMODEL='bart'
 
 # supervised
 # 1 gpu
 # python3 run_train.py +experiment=pcfgset_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.16,0.99] model/discretizer=$DISC trainer.devices=[0] datamodule.dataset_parameters.batch_size=$BSIZE +test=True model.optimizer.lr=0.001 || true
 # 1 gpu, val_loss_separated for lr scheduler
-# python3 run_train.py +experiment=pcfgset_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.99,0.99] model/discretizer=$DISC trainer.devices=[0] datamodule.dataset_parameters.batch_size=$BSIZE +test=True model.optimizer.lr=0.01 model.lr_scheduler.monitor='val/loss/supervised_seperated' || true
+# python3 run_train.py +experiment=pcfgset_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.04,0.99] model/discretizer=$DISC trainer.devices=[0] datamodule.dataset_parameters.batch_size=$BSIZE +test=True model.optimizer.lr=0.001 model.lr_scheduler.monitor='val/loss/supervised_seperated' || true
+# continue from ckpt
+# CKPT="/home/mila/s/sayed.mansouri-tehrani/scratch/logs/training/runs/pcfg_set/suponly-[0.04, 0.99]-bart-vqvae/2024-01-14_05-06-34/checkpoints/last.ckpt"
+# python3 run_train.py +experiment=pcfgset_curriculum.yaml datamodule.dataset_parameters.supervision_ratio=[0.04,0.99] discretizer_key=$DISC "model.checkpoint_path='$CKPT'" trainer.devices=[0] datamodule.dataset_parameters.batch_size=$BSIZE sequence_to_sequence_model_key=$SEQMODEL +test=True model.optimizer.lr=0.0005 model.lr_scheduler.monitor='val/loss/supervised_seperated' callbacks.supervision_scheduler.scheduler_xz.hp_init=1.0 callbacks.supervision_scheduler.scheduler_xz.hp_end=1.0 || true
+# CKPT="/home/mila/s/sayed.mansouri-tehrani/scratch/logs/training/runs/pcfg_set/suponly-[0.08, 0.99]-bart-vqvae/2024-01-14_05-06-34/checkpoints/last.ckpt"
+# python3 run_train.py +experiment=pcfgset_curriculum.yaml datamodule.dataset_parameters.supervision_ratio=[0.08,0.99] discretizer_key=$DISC "model.checkpoint_path='$CKPT'" trainer.devices=[0] datamodule.dataset_parameters.batch_size=$BSIZE sequence_to_sequence_model_key=$SEQMODEL +test=True model.optimizer.lr=0.0005 model.lr_scheduler.monitor='val/loss/supervised_seperated' callbacks.supervision_scheduler.scheduler_xz.hp_init=1.0 callbacks.supervision_scheduler.scheduler_xz.hp_end=1.0 || true
+# CKPT="/home/mila/s/sayed.mansouri-tehrani/scratch/logs/training/runs/pcfg_set/suponly-[0.16, 0.99]-bart-vqvae/2024-01-14_05-06-33/checkpoints/last.ckpt"
+# python3 run_train.py +experiment=pcfgset_curriculum.yaml datamodule.dataset_parameters.supervision_ratio=[0.16,0.99] discretizer_key=$DISC "model.checkpoint_path='$CKPT'" trainer.devices=[0] datamodule.dataset_parameters.batch_size=$BSIZE sequence_to_sequence_model_key=$SEQMODEL +test=True model.optimizer.lr=0.0005 model.lr_scheduler.monitor='val/loss/supervised_seperated' callbacks.supervision_scheduler.scheduler_xz.hp_init=1.0 callbacks.supervision_scheduler.scheduler_xz.hp_end=1.0 || true
+# CKPT="/home/mila/s/sayed.mansouri-tehrani/scratch/logs/training/runs/pcfg_set/suponly-[0.32, 0.99]-bart-vqvae/2024-01-14_05-09-35/checkpoints/last.ckpt"
+# python3 run_train.py +experiment=pcfgset_curriculum.yaml datamodule.dataset_parameters.supervision_ratio=[0.32,0.99] discretizer_key=$DISC "model.checkpoint_path='$CKPT'" trainer.devices=[0] datamodule.dataset_parameters.batch_size=$BSIZE sequence_to_sequence_model_key=$SEQMODEL +test=True model.optimizer.lr=0.0005 model.lr_scheduler.monitor='val/loss/supervised_seperated' callbacks.supervision_scheduler.scheduler_xz.hp_init=1.0 callbacks.supervision_scheduler.scheduler_xz.hp_end=1.0 || true
 
 # python3 run_train.py +experiment=pcfgset_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.32,0.99] model/discretizer=$DISC trainer.devices=$DEVICE datamodule.dataset_parameters.batch_size=$BSIZE +test=True trainer=ddp model.optimizer.lr=0.001 || true
 # python3 run_train.py +experiment=pcfgset_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.99,0.99] model/discretizer=$DISC trainer.devices=$DEVICE datamodule.dataset_parameters.batch_size=$BSIZE +test=True datamodule.dataset_parameters.num_workers=1 model.optimizer.lr=0.001 || true
@@ -66,7 +76,15 @@ DISC='softmax' # 'gumbel' or 'vqvae' or 'softmax'
 # only zxz
 # python3 run_train.py +experiment=pcfgset_mixed.yaml datamodule.dataset_parameters.supervision_ratio=[0.01,0.99] model/discretizer=$DISC trainer.devices=$DEVICE datamodule.dataset_parameters.batch_size=$BSIZE +test=True logger.wandb.notes="only zxz" callbacks.supervision_scheduler.scheduler_xz.hp_init=0.0 callbacks.supervision_scheduler.scheduler_xz.hp_end=0.0 callbacks.supervision_scheduler.scheduler_z.hp_init=1.0 callbacks.supervision_scheduler.scheduler_z.hp_end=1.0 model.model_params.loss_coeff.zxz=1.0 model.lr_scheduler.monitor='val/loss/zxz' || true
 # only zxz, 1 gpu
-python3 run_train.py +experiment=pcfgset_mixed.yaml datamodule.dataset_parameters.supervision_ratio=[0.01,0.99] model/discretizer=$DISC trainer.devices=[0] datamodule.dataset_parameters.batch_size=$BSIZE model.optimizer.lr=0.00001 +test=True logger.wandb.notes="only zxz" callbacks.supervision_scheduler.scheduler_xz.hp_init=0.0 callbacks.supervision_scheduler.scheduler_xz.hp_end=0.0 callbacks.supervision_scheduler.scheduler_z.hp_init=1.0 callbacks.supervision_scheduler.scheduler_z.hp_end=1.0 model.model_params.loss_coeff.zxz=1.0 model.lr_scheduler.monitor='val/loss/zxz' || true
+# python3 run_train.py +experiment=pcfgset_mixed.yaml datamodule.dataset_parameters.supervision_ratio=[0.01,0.99] model/discretizer=$DISC trainer.devices=[0] datamodule.dataset_parameters.batch_size=$BSIZE model.optimizer.lr=0.001 +test=True logger.wandb.notes="only zxz" callbacks.supervision_scheduler.scheduler_xz.hp_init=0.0 callbacks.supervision_scheduler.scheduler_xz.hp_end=0.0 callbacks.supervision_scheduler.scheduler_z.hp_init=1.0 callbacks.supervision_scheduler.scheduler_z.hp_end=1.0 model.model_params.loss_coeff.zxz=1.0 model.lr_scheduler.monitor='val/loss/zxz' || true
+# from ckpt
+# softmax
+# CKPT="/home/mila/s/sayed.mansouri-tehrani/scratch/logs/training/runs/pcfg_set/mixed-[0.01, 0.99]-bart-softmax_continous/2024-01-14_13-48-09/checkpoints/last.ckpt"
+# vqvae
+# CKPT="/home/mila/s/sayed.mansouri-tehrani/scratch/logs/training/runs/pcfg_set/mixed-[0.01, 0.99]-bart-vqvae/2024-01-14_10-29-12/checkpoints/last.ckpt"
+# gumbel
+# CKPT="/home/mila/s/sayed.mansouri-tehrani/scratch/logs/training/runs/pcfg_set/mixed-[0.01, 0.99]-bart-gumbel/2024-01-14_16-33-36/checkpoints/last.ckpt"
+# python3 run_train.py +experiment=pcfgset_curriculum.yaml datamodule.dataset_parameters.supervision_ratio=[0.01,0.99] trainer.devices=[0] datamodule.dataset_parameters.batch_size=$BSIZE sequence_to_sequence_model_key=$SEQMODEL discretizer_key=$DISC "model.checkpoint_path='$CKPT'" +test=True model.optimizer.lr=0.001 callbacks.supervision_scheduler.scheduler_xz.hp_init=0.0 callbacks.supervision_scheduler.scheduler_xz.hp_end=0.0 callbacks.supervision_scheduler.scheduler_z.hp_init=1.0 callbacks.supervision_scheduler.scheduler_z.hp_end=1.0 model.model_params.loss_coeff.zxz=1.0 model.lr_scheduler.monitor='val/loss/zxz' logger.wandb.notes="only zxz" || true
 
 
 # -------------------------------------------------------------------------------------------------------------------- #
@@ -77,12 +95,12 @@ python3 run_train.py +experiment=pcfgset_mixed.yaml datamodule.dataset_parameter
 DEVICE=2
 BSIZE=32
 DISC='vqvae' # 'gumbel' or 'vqvae' or 'softmax'
-
+SEQMODEL='bart'
 # supervised
 # 1 gpu
 # python3 run_train.py +experiment=cogs_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.64,0.99] model/discretizer=$DISC trainer.devices=[0] datamodule.dataset_parameters.batch_size=$BSIZE +test=True model.optimizer.lr=0.001 || true
 # 1 gpu, val_loss_separated for lr scheduler
-# python3 run_train.py +experiment=cogs_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.16,0.99] model/discretizer=$DISC trainer.devices=[0] datamodule.dataset_parameters.batch_size=$BSIZE +test=True model.optimizer.lr=0.001 model.lr_scheduler.monitor='val/loss/supervised_seperated' || true
+# python3 run_train.py +experiment=cogs_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.16,0.99] model/discretizer=$DISC trainer.devices=[0] datamodule.dataset_parameters.batch_size=$BSIZE +test=True model.optimizer.lr=0.0005 model.lr_scheduler.monitor='val/loss/supervised_seperated' || true
 
 # python3 run_train.py +experiment=cogs_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.32,0.99] model/discretizer=$DISC trainer.devices=$DEVICE datamodule.dataset_parameters.batch_size=$BSIZE +test=True trainer=ddp  model.optimizer.lr=0.001 || true
 # python3 run_train.py +experiment=cogs_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.99,0.99] model/discretizer=$DISC trainer.devices=$DEVICE datamodule.dataset_parameters.batch_size=$BSIZE +test=True datamodule.dataset_parameters.num_workers=1 model.optimizer.lr=0.001 || true
@@ -91,7 +109,7 @@ DISC='vqvae' # 'gumbel' or 'vqvae' or 'softmax'
 # mixed
 # python3 run_train.py +experiment=cogs_mixed.yaml datamodule.dataset_parameters.supervision_ratio=[0.32,0.99] model/discretizer=$DISC trainer.devices=$DEVICE datamodule.dataset_parameters.batch_size=$BSIZE +test=True trainer=ddp model.optimizer.lr=0.001 || true
 # mixed, 1 gpu
-# python3 run_train.py +experiment=cogs_mixed.yaml datamodule.dataset_parameters.supervision_ratio=[0.16,0.99] model/discretizer=$DISC trainer.devices=[0] datamodule.dataset_parameters.batch_size=$BSIZE +test=True logger.wandb.notes="mixed" model.optimizer.lr=0.001 || true
+# python3 run_train.py +experiment=cogs_mixed.yaml datamodule.dataset_parameters.supervision_ratio=[0.16,0.99] model/discretizer=$DISC trainer.devices=[0] datamodule.dataset_parameters.batch_size=$BSIZE +test=True logger.wandb.notes="mixed" model.optimizer.lr=0.002 || true
 # python3 run_train.py +experiment=cogs_mixed.yaml datamodule.dataset_parameters.supervision_ratio=[0.02,0.99] model/discretizer=$DISC trainer.devices=[0] datamodule.dataset_parameters.batch_size=$BSIZE +test=True logger.wandb.notes="mixed" model.optimizer.lr=0.001 model.model_params.usez=True model.model_params.loss_coeff.zxz=0.1 || true
 # python3 run_train.py +experiment=cogs_mixed.yaml datamodule.dataset_parameters.supervision_ratio=[0.02,0.90, 0.99] model/discretizer=$DISC trainer.devices=[0] datamodule.dataset_parameters.batch_size=$BSIZE +test=True logger.wandb.notes="mixed" model.optimizer.lr=0.001,0.0005 model.model_params.usex=True model.model_params.loss_coeff.xzx=0.1 model.model_params.usez=True model.model_params.loss_coeff.zxz=0.1 || true
 
@@ -99,7 +117,14 @@ DISC='vqvae' # 'gumbel' or 'vqvae' or 'softmax'
 # only zxz
 # python3 run_train.py +experiment=cogs_mixed.yaml datamodule.dataset_parameters.supervision_ratio=[0.01,0.99] model/discretizer=$DISC trainer.devices=$DEVICE datamodule.dataset_parameters.batch_size=$BSIZE +test=True logger.wandb.notes="only zxz" callbacks.supervision_scheduler.scheduler_xz.hp_init=0.0 callbacks.supervision_scheduler.scheduler_xz.hp_end=0.0 callbacks.supervision_scheduler.scheduler_z.hp_init=1.0 callbacks.supervision_scheduler.scheduler_z.hp_end=1.0 model.model_params.loss_coeff.zxz=1.0 model.lr_scheduler.monitor='val/loss/zxz' || true
 # only zxz, 1 gpu
-# python3 run_train.py +experiment=cogs_mixed.yaml datamodule.dataset_parameters.supervision_ratio=[0.01,0.99] model/discretizer=$DISC trainer.devices=[0] datamodule.dataset_parameters.batch_size=$BSIZE +test=True logger.wandb.notes="only zxz" callbacks.supervision_scheduler.scheduler_xz.hp_init=0.0 callbacks.supervision_scheduler.scheduler_xz.hp_end=0.0 callbacks.supervision_scheduler.scheduler_z.hp_init=1.0 callbacks.supervision_scheduler.scheduler_z.hp_end=1.0 model.model_params.loss_coeff.zxz=1.0 model.lr_scheduler.monitor='val/loss/zxz' model.optimizer.lr=0.0001 || true
+# python3 run_train.py +experiment=cogs_mixed.yaml datamodule.dataset_parameters.supervision_ratio=[0.01,0.99] model/discretizer=$DISC trainer.devices=[0] datamodule.dataset_parameters.batch_size=$BSIZE +test=True logger.wandb.notes="only zxz" callbacks.supervision_scheduler.scheduler_xz.hp_init=0.0 callbacks.supervision_scheduler.scheduler_xz.hp_end=0.0 callbacks.supervision_scheduler.scheduler_z.hp_init=1.0 callbacks.supervision_scheduler.scheduler_z.hp_end=1.0 model.model_params.loss_coeff.zxz=1.0 model.lr_scheduler.monitor='val/loss/zxz' model.optimizer.lr=0.0005 || true
+
+# vqvae
+# CKPT="/home/mila/s/sayed.mansouri-tehrani/scratch/logs/training/runs/cogs/mixed-[0.01, 0.99]-bart-vqvae/2024-01-08_13-13-32/checkpoints/last.ckpt"
+# softmax
+# python3 run_train.py +experiment=cogs_curriculum.yaml datamodule.dataset_parameters.supervision_ratio=[0.01,0.99] trainer.devices=[0] datamodule.dataset_parameters.batch_size=$BSIZE sequence_to_sequence_model_key=$SEQMODEL discretizer_key=$DISC "model.checkpoint_path='$CKPT'" +test=True model.optimizer.lr=0.0001 callbacks.supervision_scheduler.scheduler_xz.hp_init=0.0 callbacks.supervision_scheduler.scheduler_xz.hp_end=0.0 callbacks.supervision_scheduler.scheduler_z.hp_init=1.0 callbacks.supervision_scheduler.scheduler_z.hp_end=1.0 model.model_params.loss_coeff.zxz=1.0 model.lr_scheduler.monitor='val/loss/zxz' logger.wandb.notes="only zxz" || true
+# CKPT="/home/mila/s/sayed.mansouri-tehrani/scratch/logs/training/runs/cogs/mixed-[0.01, 0.99]-bart-softmax_continous/2024-01-14_05-03-33/checkpoints/last.ckpt"
+# python3 run_train.py +experiment=cogs_curriculum.yaml datamodule.dataset_parameters.supervision_ratio=[0.01,0.99] trainer.devices=[0] datamodule.dataset_parameters.batch_size=$BSIZE sequence_to_sequence_model_key=$SEQMODEL discretizer_key=$DISC "model.checkpoint_path='$CKPT'" +test=True model.optimizer.lr=0.0001 callbacks.supervision_scheduler.scheduler_xz.hp_init=0.0 callbacks.supervision_scheduler.scheduler_xz.hp_end=0.0 callbacks.supervision_scheduler.scheduler_z.hp_init=1.0 callbacks.supervision_scheduler.scheduler_z.hp_end=1.0 model.model_params.loss_coeff.zxz=1.0 model.lr_scheduler.monitor='val/loss/zxz' logger.wandb.notes="only zxz" model.substitute_config.model_params.max_z_length=180 || true
 
 
 
@@ -110,28 +135,54 @@ DISC='vqvae' # 'gumbel' or 'vqvae' or 'softmax'
 # supervised:
 DEVICE=2
 BSIZE=128
-DISC='vqvae' # 'gumbel' or 'vqvae' or 'softmax'
+DISC='gumbel' # 'gumbel' or 'vqvae' or 'softmax'
+SEQMODEL='bart'
 
 # supervised
 # 1 gpu
 # python3 run_train.py +experiment=cfq_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.64,0.99] model/discretizer=$DISC trainer.devices=[0] datamodule.dataset_parameters.batch_size=$BSIZE +test=True model.optimizer.lr=0.001 || true
 # 1 gpu, val_loss_separated for lr scheduler
-# python3 run_train.py +experiment=cfq_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.08,0.99] model/discretizer=$DISC trainer.devices=[0] datamodule.dataset_parameters.batch_size=$BSIZE +test=True model.optimizer.lr=0.01 model.lr_scheduler.monitor='val/loss/supervised_seperated' || true
+# python3 run_train.py +experiment=cfq_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.99,0.99] model/discretizer=$DISC trainer.devices=[0] datamodule.dataset_parameters.batch_size=$BSIZE +test=True model.optimizer.lr=0.01 model.lr_scheduler.monitor='val/loss/supervised_seperated' || true
 
 # python3 run_train.py +experiment=cfq_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.32,0.99] model/discretizer=$DISC trainer.devices=$DEVICE datamodule.dataset_parameters.batch_size=$BSIZE +test=True trainer=ddp model.optimizer.lr=0.001 || true
 # python3 run_train.py +experiment=cfq_suponly.yaml datamodule.dataset_parameters.supervision_ratio=[0.99,0.99] model/discretizer=$DISC trainer.devices=$DEVICE datamodule.dataset_parameters.batch_size=$BSIZE +test=True datamodule.dataset_parameters.num_workers=1 model.optimizer.lr=0.001 || true
+
+# continue from ckpt
+# vqvae
+# CKPT="/home/mila/s/sayed.mansouri-tehrani/scratch/logs/training/runs/cfq/suponly-[0.01, 0.99]-bart-vqvae/2024-01-14_10-41-13/checkpoints/last.ckpt"
+# python3 run_train.py +experiment=cfq_curriculum.yaml datamodule.dataset_parameters.supervision_ratio=[0.01,0.99] discretizer_key=$DISC "model.checkpoint_path='$CKPT'" trainer.devices=[0] datamodule.dataset_parameters.batch_size=$BSIZE sequence_to_sequence_model_key=$SEQMODEL +test=True model.optimizer.lr=0.005 model.lr_scheduler.monitor='val/loss/supervised_seperated' callbacks.supervision_scheduler.scheduler_xz.hp_init=1.0 callbacks.supervision_scheduler.scheduler_xz.hp_end=1.0 || true
+# CKPT="/home/mila/s/sayed.mansouri-tehrani/scratch/logs/training/runs/cfq/suponly-[0.02, 0.99]-bart-vqvae/2024-01-14_10-41-14/checkpoints/last.ckpt"
+# python3 run_train.py +experiment=pcfgset_curriculum.yaml datamodule.dataset_parameters.supervision_ratio=[0.02,0.99] discretizer_key=$DISC "model.checkpoint_path='$CKPT'" trainer.devices=[0] datamodule.dataset_parameters.batch_size=$BSIZE sequence_to_sequence_model_key=$SEQMODEL +test=True model.optimizer.lr=0.01 model.lr_scheduler.monitor='val/loss/supervised_seperated' callbacks.supervision_scheduler.scheduler_xz.hp_init=1.0 callbacks.supervision_scheduler.scheduler_xz.hp_end=1.0 || true
+# CKPT="/home/mila/s/sayed.mansouri-tehrani/scratch/logs/training/runs/cfq/suponly-[0.04, 0.99]-bart-vqvae/2024-01-14_10-41-14/checkpoints/last.ckpt"
+# python3 run_train.py +experiment=pcfgset_curriculum.yaml datamodule.dataset_parameters.supervision_ratio=[0.04,0.99] discretizer_key=$DISC "model.checkpoint_path='$CKPT'" trainer.devices=[0] datamodule.dataset_parameters.batch_size=$BSIZE sequence_to_sequence_model_key=$SEQMODEL +test=True model.optimizer.lr=0.01 model.lr_scheduler.monitor='val/loss/supervised_seperated' callbacks.supervision_scheduler.scheduler_xz.hp_init=1.0 callbacks.supervision_scheduler.scheduler_xz.hp_end=1.0 || true
+# CKPT="/home/mila/s/sayed.mansouri-tehrani/scratch/logs/training/runs/cfq/suponly-[0.08, 0.99]-bart-vqvae/2024-01-14_10-41-14/checkpoints/last.ckpt"
+# python3 run_train.py +experiment=pcfgset_curriculum.yaml datamodule.dataset_parameters.supervision_ratio=[0.08,0.99] discretizer_key=$DISC "model.checkpoint_path='$CKPT'" trainer.devices=[0] datamodule.dataset_parameters.batch_size=$BSIZE sequence_to_sequence_model_key=$SEQMODEL +test=True model.optimizer.lr=0.01 model.lr_scheduler.monitor='val/loss/supervised_seperated' callbacks.supervision_scheduler.scheduler_xz.hp_init=1.0 callbacks.supervision_scheduler.scheduler_xz.hp_end=1.0 || true
+# CKPT="/home/mila/s/sayed.mansouri-tehrani/scratch/logs/training/runs/cfq/suponly-[0.99, 0.99]-bart-vqvae/2024-01-14_11-35-27/checkpoints/last.ckpt"
+# python3 run_train.py +experiment=pcfgset_curriculum.yaml datamodule.dataset_parameters.supervision_ratio=[0.99,0.99] discretizer_key=$DISC "model.checkpoint_path='$CKPT'" trainer.devices=[0] datamodule.dataset_parameters.batch_size=$BSIZE sequence_to_sequence_model_key=$SEQMODEL +test=True model.optimizer.lr=0.01 model.lr_scheduler.monitor='val/loss/supervised_seperated' callbacks.supervision_scheduler.scheduler_xz.hp_init=1.0 callbacks.supervision_scheduler.scheduler_xz.hp_end=1.0 || true
+
 
 
 # mixed
 # python3 run_train.py +experiment=cfq_mixed.yaml datamodule.dataset_parameters.supervision_ratio=[0.32,0.99] model/discretizer=$DISC trainer.devices=$DEVICE datamodule.dataset_parameters.batch_size=$BSIZE +test=True trainer=ddp model.optimizer.lr=0.001 || true
 # mixed, 1 gpu
-# python3 run_train.py +experiment=cfq_mixed.yaml datamodule.dataset_parameters.supervision_ratio=[0.08,0.99] model/discretizer=$DISC trainer.devices=[0] datamodule.dataset_parameters.batch_size=$BSIZE +test=True logger.wandb.notes="mixed" model.optimizer.lr=0.0001 || true
+# python3 run_train.py +experiment=cfq_mixed.yaml datamodule.dataset_parameters.supervision_ratio=[0.08,0.99] model/discretizer=$DISC trainer.devices=[0] datamodule.dataset_parameters.batch_size=$BSIZE +test=True logger.wandb.notes="mixed" model.optimizer.lr=0.002 || true
 # python3 run_train.py +experiment=cfq_mixed.yaml datamodule.dataset_parameters.supervision_ratio=[0.01,0.90] model/discretizer=$DISC trainer.devices=[0] datamodule.dataset_parameters.batch_size=$BSIZE +test=True logger.wandb.notes="mixed" model.optimizer.lr=0.0005 model.model_params.usex=True model.model_params.loss_coeff.xzx=0.1 || true
 
 # only zxz
 # python3 run_train.py +experiment=cfq_mixed.yaml datamodule.dataset_parameters.supervision_ratio=[0.01,0.99] model/discretizer=$DISC trainer.devices=$DEVICE datamodule.dataset_parameters.batch_size=$BSIZE +test=True logger.wandb.notes="only zxz" callbacks.supervision_scheduler.scheduler_xz.hp_init=0.0 callbacks.supervision_scheduler.scheduler_xz.hp_end=0.0 callbacks.supervision_scheduler.scheduler_z.hp_init=1.0 callbacks.supervision_scheduler.scheduler_z.hp_end=1.0 model.model_params.loss_coeff.zxz=1.0 model.lr_scheduler.monitor='val/loss/zxz' || true
 # only zxz, 1 gpu
-# python3 run_train.py +experiment=cfq_mixed.yaml datamodule.dataset_parameters.supervision_ratio=[0.01,0.99] model/discretizer=$DISC trainer.devices=[0] datamodule.dataset_parameters.batch_size=$BSIZE +test=True logger.wandb.notes="only zxz" callbacks.supervision_scheduler.scheduler_xz.hp_init=0.0 callbacks.supervision_scheduler.scheduler_xz.hp_end=0.0 callbacks.supervision_scheduler.scheduler_z.hp_init=1.0 callbacks.supervision_scheduler.scheduler_z.hp_end=1.0 model.model_params.loss_coeff.zxz=1.0 model.lr_scheduler.monitor='val/loss/zxz' model.optimizer.lr=0.0001 || true
+# python3 run_train.py +experiment=cfq_mixed.yaml datamodule.dataset_parameters.supervision_ratio=[0.01,0.99] model/discretizer=$DISC trainer.devices=[0] datamodule.dataset_parameters.batch_size=$BSIZE +test=True logger.wandb.notes="only zxz" callbacks.supervision_scheduler.scheduler_xz.hp_init=0.0 callbacks.supervision_scheduler.scheduler_xz.hp_end=0.0 callbacks.supervision_scheduler.scheduler_z.hp_init=1.0 callbacks.supervision_scheduler.scheduler_z.hp_end=1.0 model.model_params.loss_coeff.zxz=1.0 model.lr_scheduler.monitor='val/loss/zxz' model.optimizer.lr=0.001 || true
+# only zxz, 1 gpu, load from ckpt
+
+# vqvae
+# CKPT="/home/mila/s/sayed.mansouri-tehrani/scratch/logs/training/runs/cfq/mixed-[0.01, 0.99]-bart-vqvae/2024-01-09_10-25-03/checkpoints/last.ckpt"
+# CKPT="/home/mila/s/sayed.mansouri-tehrani/scratch/logs/training/runs/cfq/curriculum-[0.01, 0.99]-bart-vqvae/2024-01-14_12-29-42/checkpoints/last.ckpt"
+# python3 run_train.py +experiment=cfq_curriculum.yaml datamodule.dataset_parameters.supervision_ratio=[0.01,0.99] trainer.devices=[0] datamodule.dataset_parameters.batch_size=$BSIZE sequence_to_sequence_model_key=$SEQMODEL discretizer_key=$DISC "model.checkpoint_path='$CKPT'" +test=True model.optimizer.lr=0.001 callbacks.supervision_scheduler.scheduler_xz.hp_init=0.0 callbacks.supervision_scheduler.scheduler_xz.hp_end=0.0 callbacks.supervision_scheduler.scheduler_z.hp_init=1.0 callbacks.supervision_scheduler.scheduler_z.hp_end=1.0 model.model_params.loss_coeff.zxz=1.0 model.lr_scheduler.monitor='val/loss/zxz' logger.wandb.notes="only zxz" || true
+# softmax
+# CKPT="/home/mila/s/sayed.mansouri-tehrani/scratch/logs/training/runs/cfq/mixed-[0.01, 0.99]-bart-softmax_continous/2023-12-30_12-54-14/checkpoints/last.ckpt"
+# gumbel
+# CKPT="/home/mila/s/sayed.mansouri-tehrani/scratch/logs/training/runs/cfq/mixed-[0.01, 0.99]-bart-gumbel/2024-01-09_13-05-29/checkpoints/last.ckpt"
+# python3 run_train.py +experiment=cfq_curriculum.yaml datamodule.dataset_parameters.supervision_ratio=[0.01,0.99] trainer.devices=[0] datamodule.dataset_parameters.batch_size=$BSIZE sequence_to_sequence_model_key=$SEQMODEL discretizer_key=$DISC "model.checkpoint_path='$CKPT'" +test=True model.optimizer.lr=0.0005 callbacks.supervision_scheduler.scheduler_xz.hp_init=0.0 callbacks.supervision_scheduler.scheduler_xz.hp_end=0.0 callbacks.supervision_scheduler.scheduler_z.hp_init=1.0 callbacks.supervision_scheduler.scheduler_z.hp_end=1.0 model.model_params.loss_coeff.zxz=1.0 model.lr_scheduler.monitor='val/loss/zxz' logger.wandb.notes="only zxz" || true
 
 
 deactivate

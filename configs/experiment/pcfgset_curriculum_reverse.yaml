@@ -6,7 +6,7 @@ defaults:
 
 # name of the run determines folder name in logs
 name: "pcfg_sigmae"
-run_name: "curriculum-${datamodule.dataset_parameters.supervision_ratio}-${sequence_to_sequence_model_key}-${discretizer_key}" 
+run_name: "curriculum-reverse-${datamodule.dataset_parameters.supervision_ratio}-${sequence_to_sequence_model_key}-${discretizer_key}" 
 
 sequence_to_sequence_model_key: ???
 discretizer_key: ???
@@ -80,8 +80,8 @@ callbacks:
     scheduler_xz:
       num_warmup_steps: 1 # when to start (epochs)
       num_training_steps: 50 # epoch
-      hp_init: 1.0
-      hp_end: 0.8
+      hp_init: 0.0
+      hp_end: 0.5
     scheduler_z:
       # between 0 and 1, saying given that a sample is not xz, how likely is it to be z.
       num_warmup_steps: 300
