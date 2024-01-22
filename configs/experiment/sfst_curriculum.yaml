@@ -13,12 +13,13 @@ discretizer_key: ???
 
 track_gradients: Yes
 overfit_batch: 0
+num_epochs: 1000
 
 trainer:
   devices: [0] # 'auto', or numbers like 2, [0]
-  accelerator: 'gpu' #cpu, tpu, (devices=4, accelerator="gpu", strategy="ddp"), (devices="auto", accelerator="auto")  
-  max_epochs: 500
-  min_epochs: 500
+  accelerator: 'gpu' #cpu, tpu, (devices=4, accelerator="gpu", strategy="ddp"), (devices="auto", accelerator="auto")
+  max_epochs: ${num_epochs}
+  min_epochs: ${num_epochs}
 
 datamodule:
   dataset_parameters:
