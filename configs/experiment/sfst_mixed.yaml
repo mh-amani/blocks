@@ -1,4 +1,4 @@
-# @package _global_
+# @package _global_ 
 
 defaults:
   - override /datamodule: sfst
@@ -12,7 +12,7 @@ defaults:
 
 # name of the run determines folder name in logs
 name: "sfst_sigmae"
-run_name: "suponly-${datamodule.dataset_parameters.supervision_ratio}-${model.sequence_to_sequence_model.key}-${model.discretizer.key}" 
+run_name: "mixed-${datamodule.dataset_parameters.supervision_ratio}-${model.sequence_to_sequence_model.key}-${model.discretizer.key}" 
 
 track_gradients: Yes
 overfit_batch: 0
@@ -23,6 +23,7 @@ trainer:
   accelerator: 'gpu' #cpu, tpu, (devices=4, accelerator="gpu", strategy="ddp"), (devices="auto", accelerator="auto")
   max_epochs: ${num_epochs}
   min_epochs: ${num_epochs}
+
 
 datamodule:
   dataset_parameters:
@@ -42,42 +43,44 @@ datamodule:
 
 model:
   model_params:
+    use_pc_grad: False
+
     # for gradient inner product logging in val step 
-    log_gradient_stats: True
-    num_steps_log_gradient_stats: 4
+    log_gradient_stats: False
+    num_steps_log_gradient_stats: 8
     log_gradient_stats_batch_size: 32
 
     acc_grad_batch: 1
     num_bootstrap_tests: 10
 
-    max_x_length: ${add_int:${datamodule.dataset_parameters.max_length}, 3}
-    max_x_vocab_size: ${add_int:${datamodule.dataset_parameters.max_length}, 4}
-    max_z_length: ${add_int:${datamodule.dataset_parameters.max_length}, 3}
-    max_z_vocab_size: ${add_int:${datamodule.dataset_parameters.max_length}, 4}
-    
+    max_x_length: 20
+    max_x_vocab_size: 25
+    max_z_length: 60
+    max_z_vocab_size: 25
+
     usexz: True
     usex: False
     usez: False
 
     loss_coeff:
-      xzx: 1.0
-      zxz: 1.0
-      supervised_seperated_x: 1.0
-      supervised_seperated_z: 1.0
-      quantization_zxz: 0.0                                                                                                                                                                                                                                                                                                         
+      xzx: 0.1
+      zxz: 0.2
+      supervised_seperated_x: 0.1
+      supervised_seperated_z: 0.2
+      quantization_zxz: 0.0                                                                                                                                                                                                                                                                                                      
       quantization_xzx: 0.0
-      quantization_supervised_seperated: 0.5
+      quantization_supervised_seperated: 0.01
 
   optimizer:
-    lr: 0.001
+    lr: 0.005
 
   lr_scheduler:
     mode: "min"
     factor: 0.98
-    patience: 40
+    patience: 5
     threshold: 0.01
     threshold_mode: "abs"
-    cooldown: 40
+    cooldown: 5
     min_lr: 1e-6
     eps: 1e-8
     verbose: True
@@ -85,16 +88,17 @@ model:
 callbacks:
   supervision_scheduler:
     scheduler_xz:
-      num_warmup_steps: 1
-      num_training_steps: 100
-      hp_init: 1.0
-      hp_end: 1.0
+      num_warmup_steps: 30
+      num_training_steps: 200
+      hp_init: 0.1
+      hp_end: 0.0
     scheduler_z:
       # between 0 and 1, saying given that a sample is not xz, how likely is it to be z.
-      num_warmup_steps: 1
-      num_training_steps: 100
+      num_warmup_steps: 100
+      num_training_steps: 200
       hp_init: 1.0
       hp_end: 1.0
+
 
 logger:
   wandb:
