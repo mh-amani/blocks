@@ -89,6 +89,7 @@ class CFQDatamodule(AbstractPLDataModule):
         
         self.data_train = hydra.utils.instantiate(self.params['datasets']['train'], self.dataset_parameters)
         self.data_val = hydra.utils.instantiate(self.params['datasets']['val'], self.dataset_parameters)
-        self.data_test = hydra.utils.instantiate(self.params['datasets']['test'], self.dataset_parameters)
+        # self.data_test = hydra.utils.instantiate(self.params['datasets']['test'], self.dataset_parameters)
+        self.data_test = self.data_val
 
     

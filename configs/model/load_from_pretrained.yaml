@@ -12,16 +12,24 @@ model_params:
     max_x_vocab_size: ${model.substitute_config.model_params.max_x_vocab_size}
     max_z_length: ${model.substitute_config.model_params.max_z_length}
     max_z_vocab_size: ${model.substitute_config.model_params.max_z_vocab_size}
+    # max_x_length: 100 # 158 is the max length of a sentence in the dataset
+    # max_x_vocab_size: 60 # 53
+    # max_z_length: 250 # 2018 is the max length of a sentence in the dataset
+    # max_z_vocab_size: 50 # 40
 
 substitute_config:  
   collator: ${model.collator}
 
   model_params:
     decode_after_autoreg_step: True
-    max_x_length: 100
-    max_x_vocab_size: 200
-    max_z_length: 100
-    max_z_vocab_size: 200
+    # max_x_length: 100
+    # max_x_vocab_size: 200
+    # max_z_length: 100
+    # max_z_vocab_size: 200
+    # max_x_length: 3
+    # max_x_vocab_size: 7
+    # max_z_length: 3
+    # max_z_vocab_size: 7
 
     loss_coeff:
       xzx: 1.0
