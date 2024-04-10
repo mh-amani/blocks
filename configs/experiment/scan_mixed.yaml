@@ -44,7 +44,7 @@ model:
     acc_grad_batch: 1
     num_bootstrap_tests: 10
 
-    max_x_length: 20
+    max_x_length: 11
     max_x_vocab_size: 25
     max_z_length: 60
     max_z_vocab_size: 25
