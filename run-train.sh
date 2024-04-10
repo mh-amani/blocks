@@ -32,7 +32,7 @@ BSIZE=512
 DISC='vqvae' # 'gumbel' or 'vqvae' or 'softmax'
 DEVICE=[0]
 NAME="scan_final"
-LR=0.0002
+LR=0.001
 SEQMODEL='bart' # 'gpt2_gpt2' or 'bart'
 NUM_EPOCHS=1000
 
@@ -43,14 +43,15 @@ python3 run_train.py +experiment=scan_suponly.yaml datamodule.dataset_parameters
 python3 run_train.py +experiment=scan_mixed.yaml datamodule.dataset_parameters.supervision_ratio=[0.01,0.99] trainer.devices=$DEVICE \
     datamodule.dataset_parameters.batch_size=$BSIZE model/sequence_to_sequence_model=$SEQMODEL model/discretizer=$DISC \
     model.model_params.usex=False model.model_params.usez=False \
-    model.model_params.loss_coeff.zxz=1.0 model.model_params.loss_coeff.xzx=0.0 \
+    model.model_params.loss_coeff.zxz=1.0 model.model_params.loss_coeff.xzx=1.0 \
     model.model_params.loss_coeff.quantization_zxz=0.0 model.model_params.loss_coeff.quantization_xzx=0.0 \
     model.model_params.loss_coeff.supervised_seperated_x=0.0 model.model_params.loss_coeff.supervised_seperated_z=0.0 \
     callbacks.supervision_scheduler.scheduler_xz.hp_init=0.0 callbacks.supervision_scheduler.scheduler_xz.hp_end=0.0 \
     callbacks.supervision_scheduler.scheduler_z.hp_init=1.0 callbacks.supervision_scheduler.scheduler_z.hp_end=1.0 \
     callbacks.supervision_scheduler.scheduler_xz.num_warmup_steps=3 callbacks.supervision_scheduler.scheduler_xz.num_training_steps=100 \
     callbacks.supervision_scheduler.scheduler_z.num_warmup_steps=3 callbacks.supervision_scheduler.scheduler_z.num_training_steps=100 \
-    +test=True model.optimizer.lr=$LR name=$NAME model.lr_scheduler.monitor="val/loss/zxz" num_epochs=$NUM_EPOCHS logger.wandb.notes="zxz" logger.wandb.tags=["zxz"]
+    +model.model_params.average_eos_in_backprop=True\
+    +test=True model.optimizer.lr=$LR name=$NAME model.lr_scheduler.monitor="val/loss/zxz" num_epochs=$NUM_EPOCHS logger.wandb.notes="zxz_nomask" logger.wandb.tags=["zxz_nomask"]
 
 # continue training:
 CKPT="'/dlabdata1/masani/blocks/logs/training/runs/scan/curriculum-[0.02, 0.99]-bart-vqvae/2024-01-26_05-02-12/checkpoints/last.ckpt'"
