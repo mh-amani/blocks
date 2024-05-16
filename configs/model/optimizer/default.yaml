@@ -13,6 +13,7 @@ disc_x:
 disc_z:
   _target_: torch.optim.AdamW
   lr: ${float_div:${..lr},10}
+  # lr: ${..lr}
   weight_decay: ${..weight_decay}
   eps: ${..eps}
   betas: ${..betas}

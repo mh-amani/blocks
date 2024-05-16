@@ -43,10 +43,10 @@ model:
 
       
       num_bootstrap_tests: 10    
-      max_x_length: 100 # 158 is the max length of a sentence in the dataset
-      max_x_vocab_size: 60 # 53
-      max_z_length: 250 # 2018 is the max length of a sentence in the dataset
-      max_z_vocab_size: 50 # 40
+      max_x_length: 60 # 52 is the max length of a sentence in the dataset
+      max_x_vocab_size: 1615 # 1607
+      max_z_length: 220 # 218 is the max length of a sentence in the dataset
+      max_z_vocab_size: 1510 # 1497
       
       usex: True
       usez: True

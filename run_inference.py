@@ -10,6 +10,7 @@ from pytorch_lightning import LightningModule, LightningDataModule, Trainer
 from pytorch_lightning.loggers.logger import Logger
 
 import src.utils.general as utils
+from src.utils import hydra_custom_resolvers
 
 log = utils.get_pylogger(__name__)
 

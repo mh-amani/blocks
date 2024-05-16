@@ -116,6 +116,9 @@ class XZAutoencoder(LightningModule):
         self.log_gradient_stats_batch_size = self.hparams.model_params.log_gradient_stats_batch_size
 
         self.aggregated_grads = {}
+        self.test_step_outputs = {}.fromkeys(['batch', 'outputs'])
+        self.test_step_outputs['batch'] = []
+        self.test_step_outputs['outputs'] = []
                     
     def setup(self, stage: str) -> None:
         
@@ -839,53 +842,76 @@ class XZAutoencoder(LightningModule):
             file.write(log_string)
 
     def test_step(self, batch, batch_idx):
-        
+
         outputs = self.compute_accuracy_measures(batch, batch_idx, stage='test')
 
-        # if self.hparams['model_params'].get('num_bootstrap_tests', False):
-        #     n = self.hparams['model_params']['num_bootstrap_tests']
-        #     self.accuracy_bootstrapped = {'X': BootStrapper(src.metrics.Accuracy(self.pad_token_id).to(self.device),
-        #                                         num_bootstraps=n).to(self.device), 
-        #                      'Z': BootStrapper(src.metrics.Accuracy(self.pad_token_id).to(self.device),
-        #                                         num_bootstraps=n).to(self.device)}
-        #     self.accuracy_sentence_bootsrapped = {'X': BootStrapper(torchmetrics.classification.MulticlassExactMatch(num_classes=self.disc_x_vocab_size ,ignore_index=self.pad_token_id).to(self.device),
-        #                                                  num_bootstraps=n).to(self.device),
-        #                                 'Z': BootStrapper(torchmetrics.classification.MulticlassExactMatch(num_classes=self.disc_z_vocab_size ,ignore_index=self.pad_token_id).to(self.device),
-        #                                                    num_bootstraps=n).to(self.device)}
-              
-        #     x_ids = batch['x_ids'].detach()
-        #     z_ids = batch['z_ids'].detach()
-        #     x_pad_mask = torch.logical_not(torch.eq(x_ids, self.pad_token_id))
-        #     z_pad_mask = torch.logical_not(torch.eq(z_ids, self.pad_token_id))
-            
+        # return the outputs for the test step so that we can use them in the test epoch end
+        self.test_step_outputs['batch'].append(batch)
+        self.test_step_outputs['outputs'].append(outputs)
 
-        #     x_hat_ids_autoreg = outputs['zxz']['x_hat_ids'].detach()
-        #     x_ids_autoreg, x_hat_ids_autoreg = pad_label_label(x_ids, x_hat_ids_autoreg, self.pad_token_id)
-        #     x_pad_mask = torch.logical_not(torch.eq(x_ids_autoreg, self.pad_token_id))
-        #     x_hat_ids_autoreg[:, :-1] = x_hat_ids_autoreg[:, :-1] * x_pad_mask[:, 1:]
-        #     x_hat_ids_autoreg[:, -1] = 0
-        #     x_acc= self.accuracy_bootstrapped['X'](x_hat_ids_autoreg.reshape(-1), x_ids_autoreg.reshape(-1))
-        #     x_acc_sentence = self.accuracy_sentence_bootsrapped['X'](x_hat_ids_autoreg, x_ids_autoreg)
-
-        #     self.log('test/accuracy-mean/X', x_acc['mean'], batch_size=self.batch_size)
-        #     self.log('test/accuracy-std/X', x_acc['std'], batch_size=self.batch_size)
-        #     self.log('test/sentence-accuracy-mean/X', x_acc_sentence['mean'], batch_size=self.batch_size)
-        #     self.log('test/sentence-accuracy-std/X', x_acc_sentence['std'], batch_size=self.batch_size)
-            
-        #     z_hat_ids_autoreg = outputs['xzx']['z_hat_ids'].detach()
-        #     z_ids_autoreg, z_hat_ids_autoreg = pad_label_label(z_ids, z_hat_ids_autoreg, self.pad_token_id)
-        #     z_pad_mask = torch.logical_not(torch.eq(z_ids_autoreg, self.pad_token_id))
-        #     z_hat_ids_autoreg[:, :-1] = z_hat_ids_autoreg[:, :-1] * z_pad_mask[:, 1:]
-        #     z_hat_ids_autoreg[:, -1] = 0
-        #     z_acc = self.accuracy_bootstrapped['Z'](z_hat_ids_autoreg.reshape(-1), z_ids_autoreg.reshape(-1))
-        #     z_acc_sentence = self.accuracy_sentence_bootsrapped['Z'](z_hat_ids_autoreg, z_ids_autoreg)
-
-        #     self.log('test/accuracy-mean/Z', z_acc['mean'], batch_size=self.batch_size)
-        #     self.log('test/accuracy-std/Z', z_acc['std'], batch_size=self.batch_size)
-        #     self.log('test/sentence-accuracy-mean/Z', z_acc_sentence['mean'], batch_size=self.batch_size)
-        #     self.log('test/sentence-accuracy-std/Z', z_acc_sentence['std'], batch_size=self.batch_size)
-
+        return
     
+
+    def compute_bootstrap_accuracy_measures(self, x_ids, z_ids, x_pad_mask, z_pad_mask, outputs, stage, bootstrap_accuracy, bootstrap_accuracy_sentence):
+
+        teacher_forced_available = outputs['supervised_seperated'] is not None
+        autoreg_z_available = outputs['zxz'] is not None
+        autoreg_x_available = outputs['xzx'] is not None
+
+        if teacher_forced_available:
+            x_hat_ids_teacherforced = outputs['supervised_seperated']['x_hat_ids'].detach()
+            x_hat_ids_teacherforced = x_hat_ids_teacherforced * x_pad_mask[:, 1:]
+            z_hat_ids_teacherforced = outputs['supervised_seperated']['z_hat_ids'].detach()
+            z_hat_ids_teacherforced = z_hat_ids_teacherforced * z_pad_mask[:, 1:]
+            x_ids_teacherforced, x_hat_ids_teacherforced = pad_label_label(x_ids[:, 1:], x_hat_ids_teacherforced, self.pad_token_id)
+            z_ids_teacherforced, z_hat_ids_teacherforced = pad_label_label(z_ids[:, 1:], z_hat_ids_teacherforced, self.pad_token_id)
+            self.bootstrap_accuracy_measures(x_ids_teacherforced, x_hat_ids_teacherforced, stage, 'X', 'teacherforced', bootstrap_accuracy, bootstrap_accuracy_sentence)
+            self.bootstrap_accuracy_measures(z_ids_teacherforced, z_hat_ids_teacherforced, stage, 'Z', 'teacherforced', bootstrap_accuracy, bootstrap_accuracy_sentence)
+        
+        if autoreg_z_available:
+            z_hat_ids_autoreg = outputs['zxz']['z_hat_ids'].detach()
+            x_hat_ids_autoreg = outputs['zxz']['x_hat_ids'].detach()
+            z_hat_ids_autoreg = z_hat_ids_autoreg * z_pad_mask[:, 1:]
+            x_ids_autoreg, x_hat_ids_autoreg = pad_label_label(x_ids[:, 1:], x_hat_ids_autoreg, self.pad_token_id)
+            x_ids_autoreg_mask = torch.logical_not(torch.eq(x_ids_autoreg, self.pad_token_id))
+            x_hat_ids_autoreg = x_hat_ids_autoreg * x_ids_autoreg_mask
+            self.bootstrap_accuracy_measures(z_ids[:, 1:], z_hat_ids_autoreg, stage, 'Z', 'autoreg', bootstrap_accuracy, bootstrap_accuracy_sentence)
+            self.bootstrap_accuracy_measures(x_ids_autoreg, x_hat_ids_autoreg, stage, 'X', 'autoreg_hidden_layer', bootstrap_accuracy, bootstrap_accuracy_sentence)
+
+         
+        if autoreg_x_available:
+            x_hat_ids_autoreg = outputs['xzx']['x_hat_ids'].detach() 
+            z_hat_ids_autoreg = outputs['xzx']['z_hat_ids'].detach()
+            x_hat_ids_autoreg = x_hat_ids_autoreg * x_pad_mask[:, 1:]
+            z_ids_autoreg, z_hat_ids_autoreg = pad_label_label(z_ids[: ,1:], z_hat_ids_autoreg, self.pad_token_id)
+            z_ids_autoreg_mask = torch.logical_not(torch.eq(z_ids_autoreg, self.pad_token_id))
+            z_hat_ids_autoreg = z_hat_ids_autoreg * z_ids_autoreg_mask
+            self.bootstrap_accuracy_measures(x_ids[:, 1:], x_hat_ids_autoreg, stage, 'X', 'autoreg', bootstrap_accuracy, bootstrap_accuracy_sentence)
+            self.bootstrap_accuracy_measures(z_ids_autoreg, z_hat_ids_autoreg, stage, 'Z', 'autoreg_hidden_layer', bootstrap_accuracy, bootstrap_accuracy_sentence)
+
+
+    def bootstrap_accuracy_measures(self, ids, hat_ids, stage, variable, type, bootstrap_accuracy, bootstrap_accuracy_sentence):
+        
+        # shifting to make the sequences aligned, removing bos
+        acc_device = self.device
+        ids = ids.to(acc_device)
+        hat_ids = hat_ids.to(acc_device)
+
+        pad_mask = torch.logical_not(torch.eq(ids, self.pad_token_id))
+
+        acc_name = f'{stage}/{type}/accuracy/{variable}'
+        sentence_acc_name = f'{stage}/{type}/sentence-accuracy/{variable}'
+
+        corrects = torch.sum(torch.eq(hat_ids, ids)).cpu().numpy() - torch.sum(torch.logical_not(pad_mask)).cpu().numpy()
+        total = torch.sum(pad_mask).cpu().numpy()
+        bootstrap_accuracy[acc_name].append(corrects/total)
+
+        corrects_sentence = torch.sum(torch.eq(hat_ids, ids).all(axis=-1)).cpu().numpy()
+        total_sentence = len(ids)
+        bootstrap_accuracy_sentence[sentence_acc_name].append(corrects_sentence/total_sentence)
+
+        return
+
     def on_test_epoch_end(self):
         # self.correct_predictions_mask()
         for key in self.manual_accuracy:
@@ -896,12 +922,94 @@ class XZAutoencoder(LightningModule):
             if self.manual_accuracy_sentence[key]['total'] > 0:
                 self.log('manual/' + key, self.manual_accuracy_sentence[key]['correct']/self.manual_accuracy_sentence[key]['total'], batch_size=self.batch_size, sync_dist=True)
             self.manual_accuracy_sentence[key] = {'correct': 0, 'total': 0}
-        # dict = self.correct_predictions_mask(self.trainer.datamodule.test_dataloader())
-        # print('test_stats:', dict)
-        # dict = self.correct_predictions_mask(self.trainer.datamodule.val_dataloader())
-        # print('val_stats:', dict)
+        
+        # retrieve batches and aggregate them
+        x_ids = []
+        z_ids = []
 
-    
+        for batch in self.test_step_outputs['batch']:
+
+            if batch['x_ids'].shape[1] < self.max_x_length:
+                x_ids.append(torch.cat([batch['x_ids'].detach(), torch.ones(batch['x_ids'].shape[0], self.max_x_length-batch['x_ids'].shape[1], dtype=torch.long, device=self.device)*self.pad_token_id], dim=1))
+            else:
+                x_ids.append(batch['x_ids'].detach())
+
+            if batch['z_ids'].shape[1] < self.max_z_length:
+                z_ids.append(torch.cat([batch['z_ids'].detach(), torch.ones(batch['z_ids'].shape[0], self.max_z_length-batch['z_ids'].shape[1], dtype=torch.long, device=self.device)*self.pad_token_id], dim=1))
+            else:
+                z_ids.append(batch['z_ids'].detach())
+
+
+        x_ids = torch.cat(x_ids, dim=0)
+        z_ids = torch.cat(z_ids, dim=0)
+        x_pad_mask = torch.logical_not(torch.eq(x_ids, self.pad_token_id))
+        z_pad_mask = torch.logical_not(torch.eq(z_ids, self.pad_token_id))
+
+        outputs = {}.fromkeys(self.test_step_outputs['outputs'][0].keys()) # outputs.keys() = ['supervised_seperated', 'zxz', 'xzx']
+        for key in outputs.keys():
+            outputs[key] = {}.fromkeys(['x_hat_ids', 'z_hat_ids'])
+            outputs[key]['x_hat_ids'] = torch.tensor([], device=self.device)
+            outputs[key]['z_hat_ids'] = torch.tensor([], device=self.device)
+
+        for output in self.test_step_outputs['outputs']:
+            for key in output.keys():
+                if output[key] is not None:
+                    for k in output[key].keys():
+                        if output[key][k] is not None:
+                            if k == 'z_hat_ids':
+                                # first pad the output to the max length
+                                if output[key][k].shape[1] < self.max_z_length - 1:
+                                    outputs[key][k] = torch.cat([outputs[key][k], torch.cat([output[key][k], torch.ones(output[key][k].shape[0], self.max_z_length - 1 - output[key][k].shape[1], dtype=torch.long, device=self.device)*self.pad_token_id], dim=1)], dim=0)
+                                else:
+                                    outputs[key][k] = torch.cat([outputs[key][k], output[key][k]], dim=0)
+                            elif k == 'x_hat_ids':
+                                # first pad the output to the max length
+                                if output[key][k].shape[1] < self.max_x_length - 1:
+                                    outputs[key][k] = torch.cat([outputs[key][k], torch.cat([output[key][k], torch.ones(output[key][k].shape[0], self.max_x_length - 1 - output[key][k].shape[1], dtype=torch.long, device=self.device)*self.pad_token_id], dim=1)], dim=0)
+                                else:
+                                    outputs[key][k] = torch.cat([outputs[key][k], output[key][k]], dim=0)
+
+        # create n bootstrap samples, loop through them and compute the metrics for each bootstrap sample
+        n_bootstraps = 10
+        bootstrap_accuracy = {}
+        bootstrap_accuracy_sentence = {}
+        for key in self.manual_accuracy:
+            bootstrap_accuracy[key] = []
+        for key in self.manual_accuracy_sentence:
+            bootstrap_accuracy_sentence[key] = []
+        for i in range(n_bootstraps):
+            # create a bootstrap sample
+            bootstrap_indices = np.random.choice(len(x_ids), size=len(x_ids), replace=True)
+            x_ids_bootstrap = x_ids[bootstrap_indices]
+            z_ids_bootstrap = z_ids[bootstrap_indices]
+            x_pad_mask_bootstrap = x_pad_mask[bootstrap_indices]
+            z_pad_mask_bootstrap = z_pad_mask[bootstrap_indices]
+            outputs_bootstrap = {}.fromkeys(outputs.keys())
+            for key in outputs_bootstrap.keys():
+                outputs_bootstrap[key] = {}.fromkeys(['x_hat_ids', 'z_hat_ids'])
+
+            for key in outputs.keys():
+                if outputs[key] is not None:
+                    outputs_bootstrap[key]['x_hat_ids'] = outputs[key]['x_hat_ids'][bootstrap_indices]
+                    outputs_bootstrap[key]['z_hat_ids'] = outputs[key]['z_hat_ids'][bootstrap_indices]
+            # compute the metrics for the bootstrap sample
+            self.compute_bootstrap_accuracy_measures(x_ids_bootstrap, z_ids_bootstrap, x_pad_mask_bootstrap, z_pad_mask_bootstrap, outputs_bootstrap, 'test', bootstrap_accuracy, bootstrap_accuracy_sentence)
+
+        # compute the mean and std of the metrics over the bootstrap samples
+        for key in bootstrap_accuracy:
+            if key.startswith('test'):
+                bootstrap_accuracy[key] = np.array(bootstrap_accuracy[key])
+                self.log('bootstrap/' + key + '/mean', bootstrap_accuracy[key].mean(), sync_dist=True)
+                self.log('bootstrap/' + key + '/std', bootstrap_accuracy[key].std(), sync_dist=True)
+        for key in bootstrap_accuracy_sentence:
+            if key.startswith('test'):
+                bootstrap_accuracy_sentence[key] = np.array(bootstrap_accuracy_sentence[key])
+                self.log('bootstrap/' + key + '/mean', bootstrap_accuracy_sentence[key].mean(), sync_dist=True)
+                self.log('bootstrap/' + key + '/std', bootstrap_accuracy_sentence[key].std(), sync_dist=True)
+        
+        for key in self.test_step_outputs:
+            self.test_step_outputs[key].clear()
+
 
     def correct_predictions_mask(self, dataloader=None):
         correct_z_ids = 0

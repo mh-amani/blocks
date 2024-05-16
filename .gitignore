@@ -139,6 +139,8 @@ outputs/
 # slurm_outputs
 slurm_err/
 slurm_out/
+slurm_err_test/
+slurm_out_test/
 
 # check points
 checkpoints/
