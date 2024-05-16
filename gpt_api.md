@@ -4,6 +4,7 @@ To obtain the metrics for this baseline, we need to create the requests file to 
 
 Assuming one has written the requests in `scan_requests_to_parallel_process.jsonl`, then the following command will initiate many parallel requests to the API and writes the response in `scan_requests_to_parallel_process_results.jsonl`.
 
+`python api_request_parallel_processor.py --requests_filepath cfq_requests_to_parallel_process.jsonl --save_filepath cfq_requests_to_parallel_process_results.jsonl --request_url https://api.openai.com/v1/chat/completions --max_requests_per_minute 1000 --max_tokens_per_minute 6250000`
 
 To create a requests file, first create the corresponding datamodule
 
