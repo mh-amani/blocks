@@ -261,80 +261,8 @@ class XZAutoencoder(LightningModule):
                 # if name.startswith('disc') and param.requires_grad:
                 param.clamp_(-1, 1)
 
-
-        # param_dict = dict(self.named_parameters())
-        # param_dict['disc_z.dictionary.weight']._grad.var(dim=-1)
-        # param_dict['disc_x.dictionary.weight']._grad.var(dim=-1)
-        # torch.linalg.norm(param_dict['disc_z.dictionary.weight']._grad, dim=-1)
-        # torch.linalg.norm(param_dict['disc_x.dictionary.weight']._grad, dim=-1)
-        # torch.linalg.norm(param_dict['disc_z.encoder_embedding.weight']._grad, dim=-1).mean()
-        
-        # for name, param in iter(self.named_parameters()):
-        #    if param._grad is not None:
-        #        print('{: <75}'.format(name), '{: <4}'.format(param._grad.abs().mean().cpu().numpy().round(decimals=2)), '{: <4}'.format(param.abs().mean().detach().cpu().numpy().round(decimals=2)))
-
-        # print different optimizer parameters with names from self.named_parameters():
-        # for optimizer in self.optimizers():
-        #     for group in optimizer.param_groups:
-        #         for param in group['params']:
-        #             param.name = self.param_to_name(param)
-        #             print(param.grad)
-        #             print(param.grad.abs().mean().round(decimals=2))
-        #             print(param.grad.abs().max().round(decimals=2))
-        #             print(param.grad.abs().min().round(decimals=2))
-        #             print(param.grad.abs().std().round(decimals=2))
-        # for param in optimizer.param_groups[0]['params']:
-            # for param_name, param in self.named_parameters():
-        # if param.requires_grad and any(param is p for p in optimizer.param_groups[0]['params']):
-
         return loss
 
-    def pc_grad_update(self, batch, batch_idx):
-        _, losses, _ = self.forward(batch)
-        valid_loss_names = ['supervised_seperated_x', 'supervised_seperated_z', 'zxz', 'xzx']
-        losses = {key: self.loss_coeff[key] * value / self.acc_grad_batch * 1.0 for key, value in losses.items() if value is not None and key in valid_loss_names}
-        num_losses = len(losses)
-        # Calculate gradients for each loss separately and store them
-        gradient_dict = {}
-        
-        for i, loss_name in enumerate(losses):
-            retain_graph = i < num_losses - 1
-            self.manual_backward(losses[loss_name], retain_graph=retain_graph)
-            gradient_dict[loss_name] = {name: param.grad.clone() for name, param in self.named_parameters() if param.grad is not None}
-
-            # Zero out gradients after each backward pass
-            self.zero_grad()
-
-        for loss_name, grad in gradient_dict.items():
-            for other_loss_name, other_grad in gradient_dict.items():
-                if loss_name != other_loss_name and (loss_name.startswith('supervised_seperated') and other_loss_name.startswith('supervised_seperated')):
-                    shared_params = set.intersection(set(grad.keys()), set(other_grad.keys()))
-                    # Check for conflict and project gradients
-                    inner_product = sum((grad[name] * other_grad[name]).sum() for name in shared_params)                    
-                    if inner_product < 0:
-                        for name in shared_params:
-                            grad[name] -= (inner_product / (other_grad[name].norm() ** 2)) * other_grad[name]
-
-        # Aggregate the projected gradients
-        for loss_name in gradient_dict:
-            for name in gradient_dict[loss_name]:
-                if name in self.aggregated_grads:
-                    self.aggregated_grads[name] += gradient_dict[loss_name][name]
-                else:
-                    self.aggregated_grads[name] = gradient_dict[loss_name][name]
-        
-        if (batch_idx + 1) % self.acc_grad_batch == 0:
-            for name, param in self.named_parameters():
-                if name in self.aggregated_grads:
-                    param.grad = self.aggregated_grads[name]
-            
-            optimizers = self.optimizers()
-            for optimizer in optimizers:  
-                self.clip_gradients(optimizer, gradient_clip_val=0.5, gradient_clip_algorithm="norm")
-                optimizer.step()
-                optimizer.zero_grad()
-
-            self.aggregated_grads = {}
 
 
         
