@@ -15,8 +15,6 @@ from torchmetrics.wrappers import BootStrapper
 import torchmetrics
 import code
 import gc
-from blocks.modules.auto_reg_wrapper import AutoRegWrapper
-from blocks.unwrapped_models.enc_dec_unwrapper import Unwrappedbart
 # from memory_profiler import profile
 
 class XZAutoencoder(LightningModule):
@@ -29,16 +27,8 @@ class XZAutoencoder(LightningModule):
         if self.hparams.get('substitute_config'):
             self._update_params(self.hparams, self.hparams.substitute_config)
         
-        self.special_tokens = self.hparams.special_tokens 
-        self.pad_token_id = self.special_tokens.index('[pad]')
-        self.eos_token_id = self.special_tokens.index('[eos]')
-        self.bos_token_id = self.special_tokens.index('[bos]')
-        self.unk_token_id = self.special_tokens.index('[unk]')
-        self.special_tokens_ids = {'pad_token_id': self.pad_token_id, 'eos_token_id': self.eos_token_id, 
-                                   'bos_token_id': self.bos_token_id}
-        
+        self.pad_token_id = self.hparams.special_tokens.index('[pad]')        
         self.automatic_optimization = False
-        self.decode_after_autoreg_step = self.hparams.model_params.decode_after_autoreg_step
 
         # self.loss = torch.nn.NLLLoss(ignore_index=self.pad_token_id)
         self.loss = CrossEntropyLoss(ignore_index=self.pad_token_id, label_smoothing=0.01)
@@ -48,50 +38,21 @@ class XZAutoencoder(LightningModule):
         self.usex = self.hparams.model_params['usex']
 
         self.batch_size = self.hparams.dataset_parameters.batch_size
-        self.average_eos_in_backprop = self.hparams.model_params.get('average_eos_in_backprop', True)
-
-        self.max_x_length = self.hparams.model_params.max_x_length
-        self.max_z_length = self.hparams.model_params.max_z_length
 
         self.acc_grad_batch = self.hparams.model_params.acc_grad_batch
         assert self.acc_grad_batch > 0, "acc_grad_batch must be greater than 0"
 
-        
         # collate_fn
         train_dataset = kwargs['datamodule'].data_train
         self.pretokenized_flag = 0
-        self.collator = hydra.utils.instantiate(self.hparams.collator, train_dataset,
-                                                special_tokens=self.special_tokens, _recursive_ = False)
+        self.collator = hydra.utils.instantiate(self.hparams.collator, train_dataset, special_tokens=self.hparams.special_tokens, _recursive_ = False)
         
-        # discretizers
+        # Model
         disc_dims_x, disc_dims_z = self.discretizer_dimensions()
-        
-        # initialize the vector models
-        vector_model_x_z, _, _, _ = Unwrappedbart(hydra.utils.instantiate(self.hparams.config_x_to_z))
-        vector_model_z_x, _, _, _ = Unwrappedbart(hydra.utils.instantiate(self.hparams.config_z_to_x))  
-        
-        # initializing the discretizers
-        self.disc_x = hydra.utils.instantiate(self.hparams.disc_x, {**self.hparams.disc_x_config, **disc_dims_x})
-        self.disc_z = hydra.utils.instantiate(self.hparams.disc_z, {**self.hparams.disc_z_config, **disc_dims_z})
-        
-        self.tokenizer_config = {'control_token_ids': {
-                                    'input_pad_token_id': self.pad_token_id,
-                                    'output_eos_token_id': self.eos_token_id, 
-                                    'output_pad_token_id': self.pad_token_id,
-                                    'output_unknown_token_id': self.unk_token_id,},
-                '               output_prepending_ids': self.bos_token_id
-                                }
-        self.model_xz = AutoRegWrapper(vector_model_x_z, self.disc_x, self.disc_z,
-                                            config={**self.hparams.autoreg_wrapper_config,
-                                                        **self.tokenizer_config, 'device': 'cpu', 
-                                                        'output_prepending_ids': self.bos_token_id})
-        self.model_zx = AutoRegWrapper(vector_model_z_x, self.disc_z, self.disc_x,
-                                            config={**self.hparams.autoreg_wrapper_config,
-                                                        **self.tokenizer_config, 'device': 'cpu', 
-                                                        'output_prepending_ids': self.bos_token_id})
-        
-    
+        self.disc_x, self.disc_z, self.model_x_to_z, self.model_z_to_x, self.model_x_to_z_to_x, self.model_z_to_x_to_z = \
+                hydra.utils.instantiate(self.hparams.init_models, disc_dims_x=disc_dims_x, disc_dims_z=disc_dims_z, _recursive_=False) 
 
+        
         self.acc_mask= {'x': None, 'z': None}
         numclasses = {'X': self.collator.tokenizer_x.get_vocab_size(), 'Z': self.collator.tokenizer_z.get_vocab_size()}
         self.accuracy = torch.nn.ModuleDict()
@@ -158,41 +119,47 @@ class XZAutoencoder(LightningModule):
         
         # Supervision on Z and Supervision on X seperately
         if (data_type[0] and data_type[1] and self.usexz) or stage!='train':
-            output_supervised_seperated = self.forward_supervised_seperated(x_ids, z_ids)
-
-            # loss_x = self.loss(torch.log(output_supervised_seperated['x_hat_scores']).permute(0, 2, 1), x_ids[:, 1:])
-            # loss_z = self.loss(torch.log(output_supervised_seperated['z_hat_scores']).permute(0, 2, 1), z_ids[:, 1:])
-
-            # loss_x = self.loss(torch.nn.LogSoftmax(dim=-1)(output_supervised_seperated['x_hat_logits']).permute(0, 2, 1), x_ids[:, 1:])
-            # loss_z = self.loss(torch.nn.LogSoftmax(dim=-1)(output_supervised_seperated['z_hat_logits']).permute(0, 2, 1), z_ids[:, 1:])
-
-            loss_x = self.loss((output_supervised_seperated['x_hat_logits']).permute(0, 2, 1), x_ids[:, 1:])
-            loss_z = self.loss((output_supervised_seperated['z_hat_logits']).permute(0, 2, 1), z_ids[:, 1:])
+            # print('xz, zx')
+            # print(torch.cuda.memory_allocated() / 1024**2)
+            # print(torch.cuda.memory_reserved() / 1024**2)
+            output_supervised_seperated_z = self.model_x_to_z(input_ids=x_ids, output_ids=z_ids, teacher_force_output=True)
+            output_supervised_seperated_x = self.model_z_to_x(input_ids=z_ids, output_ids=x_ids, teacher_force_output=True)
+            # print(torch.cuda.memory_allocated() / 1024**2)
+            # print(torch.cuda.memory_reserved() / 1024**2)
+            loss_x = self.loss((output_supervised_seperated_x['logit'][:, :-1]).permute(0, 2, 1), x_ids[:, 1:])
+            loss_z = self.loss((output_supervised_seperated_z['logit'][:, :-1]).permute(0, 2, 1), z_ids[:, 1:])
 
             loss_supervised_seperated = self.loss_coeff['supervised_seperated_x'] * loss_x + self.loss_coeff['supervised_seperated_z'] * loss_z
-            outputs['supervised_seperated'] = output_supervised_seperated
+            outputs['supervised_seperated'] = {'output_z': output_supervised_seperated_z, 'output_x': output_supervised_seperated_x}
             losses['supervised_seperated'] = loss_supervised_seperated
             losses['supervised_seperated_x'] =  loss_x
             losses['supervised_seperated_z'] = loss_z
-            losses['quantization_supervised_seperated'] = output_supervised_seperated['quantization_loss']
+            losses['quantization_supervised_seperated'] = output_supervised_seperated_x['quantization_loss'] + output_supervised_seperated_z['quantization_loss']
 
         # Unsupervized xzx pass
         if (data_type[0] and not data_type[1]) or (stage!='train') or (data_type[0] and data_type[1] and self.usex):
-            output_xzx = self.forward_xzx(x_ids)
-            # loss_xzx = self.loss(torch.log(output_xzx['x_hat_scores']).permute(0, 2, 1), x_ids[:, 1:])
-            loss_xzx = self.loss(torch.nn.LogSoftmax(dim=-1)(output_xzx['x_hat_logits']).permute(0, 2, 1), x_ids[:, 1:])
+            # print('xzx')
+            # print(torch.cuda.memory_allocated() / 1024**2)
+            # print(torch.cuda.memory_reserved() / 1024**2)
+            output_xzx = self.model_x_to_z_to_x(x_ids=x_ids, max_y_length=self.hparams.model_params.max_z_length, 
+                                                z_ids=x_ids, teacher_force_z=True)
+            # print(torch.cuda.memory_allocated() / 1024**2)
+            # print(torch.cuda.memory_reserved() / 1024**2)
+            loss_xzx = self.loss(torch.nn.LogSoftmax(dim=-1)(output_xzx['logit_z'][:, :-1]).permute(0, 2, 1), x_ids[:, 1:])
             outputs['xzx'] = output_xzx
             losses['xzx'] = loss_xzx  
             losses['quantization_xzx'] = output_xzx['quantization_loss'] 
         
-        
         # Unsupervized zxz pass
         if (data_type[1] and not data_type[0]) or (stage!='train') or (data_type[0] and data_type[1] and self.usez):
-            output_zxz = self.forward_zxz(z_ids)
-            # loss_zxz = self.loss(torch.log(output_zxz['z_hat_scores']).permute(0, 2, 1), z_ids[:, 1:])
-            loss_zxz = self.loss(torch.nn.LogSoftmax(dim=-1)(output_zxz['z_hat_logits']).permute(0, 2, 1), z_ids[:, 1:])
-            if loss_zxz < 0.2:
-                code.interact(local=locals())
+            # print('zxz')
+            # print(torch.cuda.memory_allocated() / 1024**2)
+            # print(torch.cuda.memory_reserved() / 1024**2)
+            output_zxz = self.model_z_to_x_to_z(x_ids=z_ids, max_y_length=self.hparams.model_params.max_x_length,
+                                                 z_ids=z_ids, teacher_force_z=True)
+            # print(torch.cuda.memory_allocated() / 1024**2)
+            # print(torch.cuda.memory_reserved() / 1024**2)
+            loss_zxz = self.loss(torch.nn.LogSoftmax(dim=-1)(output_zxz['logit_z'][:, :-1]).permute(0, 2, 1), z_ids[:, 1:])
             outputs['zxz'] = output_zxz
             losses['zxz'] = loss_zxz
             losses['quantization_zxz'] = output_zxz['quantization_loss']
@@ -200,17 +167,12 @@ class XZAutoencoder(LightningModule):
         loss = 0 
         for key in losses:
             if losses[key] is not None:
+                losses[key] = losses[key].mean()
                 self.log(f'{stage}/loss/{key}', losses[key], batch_size=self.batch_size, sync_dist=True)
                 if self.loss_coeff.get(key) is not None:
                     loss += (self.loss_coeff[key]>0) * self.loss_coeff[key] * losses[key]  
 
         self.log(name=f'{stage}/loss', value=loss, batch_size=self.batch_size, prog_bar=True, sync_dist=True)  
-        
-        # for key in outputs:
-        #     if outputs[key] is not None:
-        #         for subkey in outputs[key]:
-        #             self.log(f'{stage}/{key}/{subkey}', outputs[key][subkey])
-
 
         return loss, losses, outputs       
     
@@ -263,30 +225,12 @@ class XZAutoencoder(LightningModule):
 
         return loss
 
-
-
-        
     def on_train_epoch_end(self):
         schedulers = self.lr_schedulers()
         for id, scheduler in enumerate(schedulers):
             # If the selected scheduler is a ReduceLROnPlateau scheduler.
             scheduler.step(self.trainer.callback_metrics[self.hparams.lr_scheduler.monitor])
             self.log(name=f'lr-scheduler/{self.module_names[id]}', value=scheduler._last_lr[0], batch_size=self.batch_size, sync_dist=True)
-
-        # apply project matrix on dictionaries
-        # with torch.no_grad():
-        #     self.disc_x.project_embedding_matrix()
-        #     self.disc_z.project_embedding_matrix()
-        
-        # print(self.trainer.callback_metrics)
-        # self.correct_predictions_mask()
-        # print('-------on train epoch end------')
-        # dict = self.correct_predictions_mask(self.trainer.datamodule.test_dataloader())
-        # print('test_stats:', dict)
-        # dict = self.correct_predictions_mask(self.trainer.datamodule.val_dataloader())
-        # print('val_stats:', dict)
-        # print('-----------------------')
-
 
     def compute_accuracy_measures(self, batch, batch_idx, stage):
         assert np.all(batch['data_type']), "compute_accuracy_measures: data_type must be supervised"
@@ -305,9 +249,9 @@ class XZAutoencoder(LightningModule):
         autoreg_x_available = outputs['xzx'] is not None
 
         if teacher_forced_available:
-            x_hat_ids_teacherforced = outputs['supervised_seperated']['x_hat_ids'].detach()
+            x_hat_ids_teacherforced = outputs['supervised_seperated']['output_x']['id'][:, :-1].detach()
             x_hat_ids_teacherforced = x_hat_ids_teacherforced * x_pad_mask[:, 1:]
-            z_hat_ids_teacherforced = outputs['supervised_seperated']['z_hat_ids'].detach()
+            z_hat_ids_teacherforced = outputs['supervised_seperated']['output_z']['id'][:, :-1].detach()
             z_hat_ids_teacherforced = z_hat_ids_teacherforced * z_pad_mask[:, 1:]
 
             x_ids_teacherforced, x_hat_ids_teacherforced = pad_label_label(x_ids[:, 1:], x_hat_ids_teacherforced, self.pad_token_id)
@@ -317,8 +261,8 @@ class XZAutoencoder(LightningModule):
             self.accuracy_measures(z_ids_teacherforced, z_hat_ids_teacherforced, stage, 'Z', 'teacherforced')
         
         if autoreg_z_available:
-            z_hat_ids_autoreg = outputs['zxz']['z_hat_ids'].detach()
-            x_hat_ids_autoreg = outputs['zxz']['x_hat_ids'].detach()
+            z_hat_ids_autoreg = outputs['zxz']['id_z'][:, :-1].detach()
+            x_hat_ids_autoreg = outputs['zxz']['id_y'].detach()
 
             z_hat_ids_autoreg = z_hat_ids_autoreg * z_pad_mask[:, 1:]
             
@@ -332,8 +276,8 @@ class XZAutoencoder(LightningModule):
 
          
         if autoreg_x_available:
-            x_hat_ids_autoreg = outputs['xzx']['x_hat_ids'].detach() 
-            z_hat_ids_autoreg = outputs['xzx']['z_hat_ids'].detach()
+            x_hat_ids_autoreg = outputs['xzx']['id_z'][:, :-1].detach()
+            z_hat_ids_autoreg = outputs['xzx']['id_y'].detach()
             
             x_hat_ids_autoreg = x_hat_ids_autoreg * x_pad_mask[:, 1:]
 
@@ -379,23 +323,6 @@ class XZAutoencoder(LightningModule):
         if sentence_acc_name.startswith('val/autoreg_hidden_layer/sentence-accuracy/Z'):
             wrong_prediction = torch.where(torch.logical_not(torch.eq(hat_ids, ids).all(axis=-1)))
             self.wrong_z_predictions = self.wrong_z_predictions + wrong_prediction[0].cpu().numpy().tolist()
-
-        # #Completeness test
-        # value = self.completeness[variable](hat_ids, ids)
-        # self.log(f'{stage}/{type}/completeness/{variable}', value, batch_size=self.batch_size)
-            
-        # #Homogeneity test
-        # value = self.homogeneity[variable](hat_ids, ids)
-        # self.log(f'{stage}/{type}/homogeneity/{variable}', value, batch_size=self.batch_size)
-
-        # #Token homogeneity test
-        # value = self.token_homogeneity[variable](hat_ids, ids)
-        # self.log(f'{stage}/{type}/token_homogeneity/{variable}', value, batch_size=self.batch_size)
-
-        # if self.hparams.get('write_testing_output', True):
-        #     step_summary = {'stage': stage, 'type': type, 'x_ids': x_ids, 'x_hat_ids': x_hat_ids, 'z_ids': z_ids, 'z_hat_ids': z_hat_ids}
-        #     self._write_testing_output(step_summary)
-        # return {acc_name: acc, sentence_acc_name: acc_sentence}
     
     def calculate_gradient_stats(self, gradient_dict):
         cosine_similarity = torch.nn.CosineSimilarity(dim=0)
@@ -492,86 +419,24 @@ class XZAutoencoder(LightningModule):
             torch.set_grad_enabled(False)
             self.eval()
         
-        # with open('wrong_x_predictions.json', 'w') as f:
-        #     json.dump(self.wrong_x_predictions, f)
-        # with open('wrong_z_predictions.json', 'w') as f:
-        #     json.dump(self.wrong_z_predictions, f)
-        # self.wrong_x_predictions = []
-        # self.wrong_z_predictions = []
-
-        # for key in self.accuracy:
-        #     self.accuracy[key].reset()
-        # for key in self.accuracy_sentence:
-        #     self.accuracy_sentence[key].reset()
-            
-        # print('-------on validation epoch end------')
-        # dict = self.correct_predictions_mask(self.trainer.datamodule.test_dataloader())
-        # print('test_stats:', dict)
-        # dict = self.correct_predictions_mask(self.trainer.datamodule.val_dataloader())
-        # print('val_stats:', dict)
-        # print('-----------------------')
 
         # add epoch number, and cosine similarity of x and z embedding vectors to a text file.
         # Create a string to write to the text file
-        disc_x_cosine_sim = self.format_matrix(self.dictionary_cosine_sim('x'))
-        disc_z_cosine_sim = self.format_matrix(self.dictionary_cosine_sim('z'))
-        disc_x_inner_prod = self.format_matrix(self.dictionary_inner_prod_sim('x'))
-        disc_z_inner_prod = self.format_matrix(self.dictionary_inner_prod_sim('z'))
-        log_string = f"Epoch: {self.trainer.current_epoch}\nDisc_x_cosine_sim:\n{disc_x_cosine_sim}\nDisc_z_cosine_sim:\n{disc_z_cosine_sim}\nDisc_x_inner_prod:\n{disc_x_inner_prod}\nDisc_z_inner_prod:\n{disc_z_inner_prod}\n"
+        # disc_x_cosine_sim = self.format_matrix(self.dictionary_cosine_sim('x'))
+        # disc_z_cosine_sim = self.format_matrix(self.dictionary_cosine_sim('z'))
+        # disc_x_inner_prod = self.format_matrix(self.dictionary_inner_prod_sim('x'))
+        # disc_z_inner_prod = self.format_matrix(self.dictionary_inner_prod_sim('z'))
+        # log_string = f"Epoch: {self.trainer.current_epoch}\nDisc_x_cosine_sim:\n{disc_x_cosine_sim}\nDisc_z_cosine_sim:\n{disc_z_cosine_sim}\nDisc_x_inner_prod:\n{disc_x_inner_prod}\nDisc_z_inner_prod:\n{disc_z_inner_prod}\n"
 
-        # Specify the path of the text file
-        file_path = "disc_logs.txt"
+        # # Specify the path of the text file
+        # file_path = "disc_logs.txt"
 
-        # Open the file in append mode and write the log_string
-        with open(file_path, "a") as file:
-            file.write(log_string)
+        # # Open the file in append mode and write the log_string
+        # with open(file_path, "a") as file:
+        #     file.write(log_string)
 
     def test_step(self, batch, batch_idx):
-        
         outputs = self.compute_accuracy_measures(batch, batch_idx, stage='test')
-
-        # if self.hparams['model_params'].get('num_bootstrap_tests', False):
-        #     n = self.hparams['model_params']['num_bootstrap_tests']
-        #     self.accuracy_bootstrapped = {'X': BootStrapper(src.metrics.Accuracy(self.pad_token_id).to(self.device),
-        #                                         num_bootstraps=n).to(self.device), 
-        #                      'Z': BootStrapper(src.metrics.Accuracy(self.pad_token_id).to(self.device),
-        #                                         num_bootstraps=n).to(self.device)}
-        #     self.accuracy_sentence_bootsrapped = {'X': BootStrapper(torchmetrics.classification.MulticlassExactMatch(num_classes=self.disc_x_vocab_size ,ignore_index=self.pad_token_id).to(self.device),
-        #                                                  num_bootstraps=n).to(self.device),
-        #                                 'Z': BootStrapper(torchmetrics.classification.MulticlassExactMatch(num_classes=self.disc_z_vocab_size ,ignore_index=self.pad_token_id).to(self.device),
-        #                                                    num_bootstraps=n).to(self.device)}
-              
-        #     x_ids = batch['x_ids'].detach()
-        #     z_ids = batch['z_ids'].detach()
-        #     x_pad_mask = torch.logical_not(torch.eq(x_ids, self.pad_token_id))
-        #     z_pad_mask = torch.logical_not(torch.eq(z_ids, self.pad_token_id))
-            
-
-        #     x_hat_ids_autoreg = outputs['zxz']['x_hat_ids'].detach()
-        #     x_ids_autoreg, x_hat_ids_autoreg = pad_label_label(x_ids, x_hat_ids_autoreg, self.pad_token_id)
-        #     x_pad_mask = torch.logical_not(torch.eq(x_ids_autoreg, self.pad_token_id))
-        #     x_hat_ids_autoreg[:, :-1] = x_hat_ids_autoreg[:, :-1] * x_pad_mask[:, 1:]
-        #     x_hat_ids_autoreg[:, -1] = 0
-        #     x_acc= self.accuracy_bootstrapped['X'](x_hat_ids_autoreg.reshape(-1), x_ids_autoreg.reshape(-1))
-        #     x_acc_sentence = self.accuracy_sentence_bootsrapped['X'](x_hat_ids_autoreg, x_ids_autoreg)
-
-        #     self.log('test/accuracy-mean/X', x_acc['mean'], batch_size=self.batch_size)
-        #     self.log('test/accuracy-std/X', x_acc['std'], batch_size=self.batch_size)
-        #     self.log('test/sentence-accuracy-mean/X', x_acc_sentence['mean'], batch_size=self.batch_size)
-        #     self.log('test/sentence-accuracy-std/X', x_acc_sentence['std'], batch_size=self.batch_size)
-            
-        #     z_hat_ids_autoreg = outputs['xzx']['z_hat_ids'].detach()
-        #     z_ids_autoreg, z_hat_ids_autoreg = pad_label_label(z_ids, z_hat_ids_autoreg, self.pad_token_id)
-        #     z_pad_mask = torch.logical_not(torch.eq(z_ids_autoreg, self.pad_token_id))
-        #     z_hat_ids_autoreg[:, :-1] = z_hat_ids_autoreg[:, :-1] * z_pad_mask[:, 1:]
-        #     z_hat_ids_autoreg[:, -1] = 0
-        #     z_acc = self.accuracy_bootstrapped['Z'](z_hat_ids_autoreg.reshape(-1), z_ids_autoreg.reshape(-1))
-        #     z_acc_sentence = self.accuracy_sentence_bootsrapped['Z'](z_hat_ids_autoreg, z_ids_autoreg)
-
-        #     self.log('test/accuracy-mean/Z', z_acc['mean'], batch_size=self.batch_size)
-        #     self.log('test/accuracy-std/Z', z_acc['std'], batch_size=self.batch_size)
-        #     self.log('test/sentence-accuracy-mean/Z', z_acc_sentence['mean'], batch_size=self.batch_size)
-        #     self.log('test/sentence-accuracy-std/Z', z_acc_sentence['std'], batch_size=self.batch_size)
 
     
     def on_test_epoch_end(self):
@@ -584,11 +449,6 @@ class XZAutoencoder(LightningModule):
             if self.manual_accuracy_sentence[key]['total'] > 0:
                 self.log('manual/' + key, self.manual_accuracy_sentence[key]['correct']/self.manual_accuracy_sentence[key]['total'], batch_size=self.batch_size, sync_dist=True)
             self.manual_accuracy_sentence[key] = {'correct': 0, 'total': 0}
-        # dict = self.correct_predictions_mask(self.trainer.datamodule.test_dataloader())
-        # print('test_stats:', dict)
-        # dict = self.correct_predictions_mask(self.trainer.datamodule.val_dataloader())
-        # print('val_stats:', dict)
-
     
 
     def correct_predictions_mask(self, dataloader=None):
@@ -642,8 +502,8 @@ class XZAutoencoder(LightningModule):
 
     def configure_optimizers(self):
         
-        optimizer_grouped_parameters = [{"params": self.model_x_to_z.parameters()}, 
-                                        {"params": self.model_z_to_x.parameters()},
+        optimizer_grouped_parameters = [{"params": self.model_x_to_z.model.parameters()}, 
+                                        {"params": self.model_z_to_x.model.parameters()},
                                         {"params": self.disc_x.parameters()},
                                         {"params": self.disc_z.parameters()}]
         
@@ -736,10 +596,10 @@ class XZAutoencoder(LightningModule):
 
     
     def discretizer_dimensions(self):
-        self.x_in_dim = self.hparams.config_x_to_z.d_model
-        self.z_in_dim = self.hparams.config_z_to_x.d_model
-        self.z_out_dim = self.hparams.config_x_to_z.d_model
-        self.x_out_dim = self.hparams.config_z_to_x.d_model
+        self.x_in_dim = self.hparams.init_models.hydra_configs.config_x_to_z.d_model
+        self.z_in_dim = self.hparams.init_models.hydra_configs.config_z_to_x.d_model
+        self.z_out_dim = self.hparams.init_models.hydra_configs.config_x_to_z.d_model
+        self.x_out_dim = self.hparams.init_models.hydra_configs.config_z_to_x.d_model
         if self.hparams.model_params.use_tokenizer_vocab_len:     
             self.disc_x_vocab_size = self.collator.tokenizer_x.get_vocab_size()
             self.disc_z_vocab_size = self.collator.tokenizer_z.get_vocab_size()
@@ -749,10 +609,10 @@ class XZAutoencoder(LightningModule):
 
         return( {'dimensions':{
                 'encoder_embedding_dim': self.x_in_dim, 'decoder_embedding_dim': self.x_out_dim, 
-                'vocab_size': self.disc_x_vocab_size, 'unembedding_dim': self.z_in_dim}},
+                'vocab_size': self.disc_x_vocab_size, 'unembedding_dim': self.disc_x_vocab_size}},
                 {'dimensions':{
                 'encoder_embedding_dim': self.z_in_dim, 'decoder_embedding_dim': self.z_out_dim, 
-                'vocab_size': self.disc_z_vocab_size, 'unembedding_dim': self.x_in_dim}})
+                'vocab_size': self.disc_z_vocab_size, 'unembedding_dim': self.disc_z_vocab_size}})
 
 
     def dictionary_cosine_sim(self, alphabet='x'):
