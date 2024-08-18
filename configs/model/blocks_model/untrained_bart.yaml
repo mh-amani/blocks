@@ -1,0 +1,59 @@
+_target_: src.models.modules.wrapped_models.UntrainedBart
+
+hydra_configs:
+  d_model: 1024
+  special_tokens: ["[pad]", "[bos]", "[eos]", "[unk]"]
+  autoreg_wrapper_config:
+    use_past_key_values: False
+    use_last_step_states: True
+    max_lengths: 
+      input: ${model.model_params.max_z_length}
+      output: ${model.model_params.max_z_length}
+    soft_average: 
+      p_eos_backward: True
+      p_eos_forward: False
+      word_embeds_with_scores_forward: True
+
+  config_x_to_z:
+    _target_: transformers.BartConfig
+    vocab_size: 3
+    max_position_embeddings: ${model.model_params.max_z_length}
+    encoder_layers: 8
+    encoder_ffn_dim: 4096
+    encoder_attention_heads: 4
+    decoder_layers: 8
+    decoder_ffn_dim: 4096
+    decoder_attention_heads: 4
+    d_model: 1024
+    use_cache: True
+    
+  config_z_to_x:
+    _target_: transformers.BartConfig
+    vocab_size: 3
+    max_position_embeddings: ${model.model_params.max_z_length}
+    encoder_layers: 8
+    encoder_ffn_dim: 4096
+    encoder_attention_heads: 4
+    decoder_layers: 8
+    decoder_ffn_dim: 4096
+    decoder_attention_heads: 4
+    d_model: 1024
+    use_cache: True
+
+  disc_x:
+    _target_: blocks.modules.discrete_bottleneck.softmax.SoftmaxDiscreteBottleneck
+  disc_x_config: 
+    quantize_vector: True 
+    temperature: 5.0
+    encoder_embedding_trainable: True
+    decoder_embedding_trainable: True
+    linear_head_trainable: True
+
+  disc_z:
+    _target_: blocks.modules.discrete_bottleneck.softmax.SoftmaxDiscreteBottleneck
+  disc_z_config: 
+    quantize_vector: True 
+    temperature: 5.0
+    encoder_embedding_trainable: True
+    decoder_embedding_trainable: True
+    linear_head_trainable: True

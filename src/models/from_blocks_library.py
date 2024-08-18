@@ -50,7 +50,7 @@ class XZAutoencoder(LightningModule):
         # Model
         disc_dims_x, disc_dims_z = self.discretizer_dimensions()
         self.disc_x, self.disc_z, self.model_x_to_z, self.model_z_to_x, self.model_x_to_z_to_x, self.model_z_to_x_to_z = \
-                hydra.utils.instantiate(self.hparams.init_models, disc_dims_x=disc_dims_x, disc_dims_z=disc_dims_z, _recursive_=False) 
+                hydra.utils.instantiate(self.hparams.blocks_model, disc_dims_x=disc_dims_x, disc_dims_z=disc_dims_z, _recursive_=False) 
 
         
         self.acc_mask= {'x': None, 'z': None}
@@ -94,7 +94,7 @@ class XZAutoencoder(LightningModule):
 
     def forward(self, batch, stage='train'):
         data_type = batch['data_type']
-        
+        code.interact(local=locals())
         x_ids = batch['x_ids']
         z_ids = batch['z_ids']
 
@@ -596,10 +596,10 @@ class XZAutoencoder(LightningModule):
 
     
     def discretizer_dimensions(self):
-        self.x_in_dim = self.hparams.init_models.hydra_configs.config_x_to_z.d_model
-        self.z_in_dim = self.hparams.init_models.hydra_configs.config_z_to_x.d_model
-        self.z_out_dim = self.hparams.init_models.hydra_configs.config_x_to_z.d_model
-        self.x_out_dim = self.hparams.init_models.hydra_configs.config_z_to_x.d_model
+        self.x_in_dim = self.hparams.blocks_model.hydra_configs.d_model
+        self.z_in_dim = self.hparams.blocks_model.hydra_configs.d_model
+        self.z_out_dim = self.hparams.blocks_model.hydra_configs.d_model
+        self.x_out_dim = self.hparams.blocks_model.hydra_configs.d_model
         if self.hparams.model_params.use_tokenizer_vocab_len:     
             self.disc_x_vocab_size = self.collator.tokenizer_x.get_vocab_size()
             self.disc_z_vocab_size = self.collator.tokenizer_z.get_vocab_size()

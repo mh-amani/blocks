@@ -46,6 +46,14 @@ def PretrainedTokenizer(**kwargs):
     tokenizer.save('./tokenizer_'+ key + '.json')
     return tokenizer
 
+def HFPretrainedTokenizer(**kwargs):
+    key = kwargs['key']
+    if kwargs['tokenizer_path'] == -1:
+        model_path = kwargs['checkpoint_path']
+        path = os.path.dirname(os.path.dirname(model_path)) + '/tokenizer_'+ key + '.json'
+    tokenizer = Tokenizer.from_file(path)
+    tokenizer.save('./tokenizer_'+ key + '.json')
+    return tokenizer
 
 # def SimpleUnigramTokenizer(dataset, key, **kwargs):
 #     tokenizer = Tokenizer(models.Unigram())

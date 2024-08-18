@@ -3,6 +3,8 @@
 defaults:
   - override /datamodule: scan
   - override /model: from_blocks_library
+  - override /model/blocks_model: pretrained_t5
+  - override /model/collator: hf_pretrained_collator
   - override /logger: wandb
   - override /trainer: default
 # all parameters below will be merged with parameters from default configurations set above
@@ -91,5 +93,5 @@ callbacks:
 
 logger:
   wandb:
-    tags: ["supervised-training"]
+    tags: ["t5-supervised"]
     notes:
